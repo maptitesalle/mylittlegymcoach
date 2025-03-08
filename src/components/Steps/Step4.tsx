@@ -2,7 +2,7 @@
 import React from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { motion } from 'framer-motion';
-import { HeartPulse, Activity, Lungs, Weight, Thermometer } from 'lucide-react';
+import { HeartPulse, Activity, Wind, Weight, Thermometer } from 'lucide-react';
 
 interface Step4Props {
   userData: UserData;
@@ -46,7 +46,7 @@ const Step4: React.FC<Step4Props> = ({ userData, updateUserData, onNext, onPrevi
     { 
       id: 'respiratoryProblems', 
       label: 'Problèmes respiratoires', 
-      icon: Lungs 
+      icon: Wind 
     },
     { 
       id: 'obesity', 
@@ -77,7 +77,7 @@ const Step4: React.FC<Step4Props> = ({ userData, updateUserData, onNext, onPrevi
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {healthOptions.map((option, index) => {
             const Icon = option.icon;
-            const isSelected = health[option.id as keyof typeof health] || false;
+            const isSelected = health[option.id as keyof typeof health] === true;
             
             return (
               <motion.div 
