@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import UserMenu from '@/components/Auth/UserMenu';
 
 const Header = () => {
   const location = useLocation();
@@ -34,12 +35,16 @@ const Header = () => {
             </NavLink>
           </nav>
           
-          <div className="flex md:hidden">
-            <button className="text-brand-primary p-2 rounded-md">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+          <div className="flex items-center">
+            <UserMenu />
+            
+            <div className="flex md:hidden ml-4">
+              <button className="text-brand-primary p-2 rounded-md">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

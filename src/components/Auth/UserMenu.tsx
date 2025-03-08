@@ -33,6 +33,8 @@ const UserMenu: React.FC = () => {
     );
   }
 
+  const displayName = user.user_metadata?.name || user.email?.split('@')[0] || 'Utilisateur';
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -42,7 +44,7 @@ const UserMenu: React.FC = () => {
         >
           <User className="h-4 w-4" />
           <span className="hidden md:inline">
-            {user.name || user.email.split('@')[0]}
+            {displayName}
           </span>
         </Button>
       </DropdownMenuTrigger>

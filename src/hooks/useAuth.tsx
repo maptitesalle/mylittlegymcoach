@@ -1,18 +1,12 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
-
-// We will mock Supabase authentication until Supabase is properly integrated
-// This is a placeholder that will be replaced with actual Supabase auth
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-}
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
@@ -24,35 +18,60 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is saved in localStorage (simulating persistence)
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    // Check if user is already logged in with Supabase
+    const initializeAuth = async () => {
+      setLoading(true);
+      
+      // Get current session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+      }
+      
+      setLoading(false);
+      
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (_event, newSession) => {
+          setSession(newSession);
+          setUser(newSession?.user || null);
+          setLoading(false);
+        }
+      );
+      
+      return () => {
+        subscription.unsubscribe();
+      };
+    };
+    
+    initializeAuth();
   }, []);
 
-  // Mock sign in function
+  // Sign in with Supabase
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      // For demo purposes, any email/password is valid
-      const mockUser = { id: 'mock-user-id', email };
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        throw error;
+      }
+      
       toast({
         title: "Connexion réussie!",
         description: "Bienvenue sur votre espace personnel.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erreur de connexion",
-        description: "Identifiants incorrects. Veuillez réessayer.",
+        description: error.message || "Identifiants incorrects. Veuillez réessayer.",
       });
       throw error;
     } finally {
@@ -60,24 +79,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Mock sign up function
+  // Sign up with Supabase
   const signUp = async (email: string, password: string, name?: string) => {
     try {
       setLoading(true);
-      // Simulate delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockUser = { id: 'mock-user-id', email, name };
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      
+      // If name is provided, add it to user metadata
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: name ? {
+          data: {
+            name
+          }
+        } : undefined
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
       toast({
         title: "Compte créé!",
-        description: "Votre compte a été créé avec succès.",
+        description: "Votre compte a été créé avec succès. Veuillez vérifier votre email pour confirmer votre inscription.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erreur d'inscription",
-        description: "Impossible de créer votre compte. Veuillez réessayer.",
+        description: error.message || "Impossible de créer votre compte. Veuillez réessayer.",
       });
       throw error;
     } finally {
@@ -85,21 +115,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Mock sign out function
+  // Sign out with Supabase
   const signOut = async () => {
     try {
       setLoading(true);
-      localStorage.removeItem('user');
-      setUser(null);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
       toast({
         title: "Déconnexion réussie",
         description: "Vous avez été déconnecté avec succès.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erreur de déconnexion",
-        description: "Une erreur est survenue lors de la déconnexion.",
+        description: error.message || "Une erreur est survenue lors de la déconnexion.",
       });
       throw error;
     } finally {
@@ -107,20 +141,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Mock reset password function
+  // Reset password with Supabase
   const resetPassword = async (email: string) => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password'
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
       toast({
         title: "Email envoyé",
         description: "Un email de réinitialisation a été envoyé à votre adresse.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible d'envoyer l'email de réinitialisation.",
+        description: error.message || "Impossible d'envoyer l'email de réinitialisation.",
       });
       throw error;
     } finally {
@@ -132,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        session,
         loading,
         signIn,
         signUp,

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Wizard } from '@/components/Wizard';
+import Wizard from '@/components/Wizard';
 import { motion } from 'framer-motion';
 
 const Index: React.FC = () => {
