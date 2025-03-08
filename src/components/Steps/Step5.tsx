@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { motion } from 'framer-motion';
@@ -14,7 +13,7 @@ import {
   Milk, 
   HeartPulse, 
   Activity, 
-  Lungs, 
+  Wind, 
   Thermometer,
   CheckCircle,
   User
@@ -27,7 +26,6 @@ interface Step5Props {
 }
 
 const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
-  // Formatter pour afficher les données numériques avec 1 décimale si nécessaire
   const formatNumber = (value: number | undefined): string => {
     if (value === undefined) return 'Non renseigné';
     return Number.isInteger(value) ? value.toString() : value.toFixed(1);
@@ -46,7 +44,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         <p className="text-gray-600 mt-2">Vérifiez les informations saisies avant de valider</p>
       </div>
       
-      {/* Informations de base */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -80,7 +77,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Force */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -110,7 +106,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Flexibilité */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -150,7 +145,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Métabolique */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -185,7 +179,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Cardio */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -210,7 +203,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Objectifs */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -265,7 +257,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Régimes */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -300,7 +291,6 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
         </div>
       </motion.div>
       
-      {/* Santé */}
       <motion.div 
         className="glass-card p-6"
         initial={{ opacity: 0, y: 10 }}
@@ -324,7 +314,7 @@ const Step5: React.FC<Step5Props> = ({ userData, onNext, onPrevious }) => {
           </div>
           
           <div className={`flex items-center p-3 rounded-lg ${userData.health?.respiratoryProblems ? 'bg-brand-primary/10' : 'bg-gray-50'}`}>
-            <Lungs className={`h-5 w-5 mr-2 ${userData.health?.respiratoryProblems ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <Wind className={`h-5 w-5 mr-2 ${userData.health?.respiratoryProblems ? 'text-brand-primary' : 'text-gray-400'}`} />
             <p className={userData.health?.respiratoryProblems ? 'font-medium text-brand-primary' : 'text-gray-500'}>Problèmes respiratoires</p>
           </div>
           
