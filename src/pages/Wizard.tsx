@@ -2,6 +2,7 @@
 import React from 'react';
 import WizardComponent from '@/components/Wizard';
 import { motion } from 'framer-motion';
+import { CheckCircle } from 'lucide-react';
 
 const WizardPage: React.FC = () => {
   return (
@@ -20,6 +21,11 @@ const WizardPage: React.FC = () => {
             Saisissez vos données sportives, vos objectifs et vos préférences pour obtenir des 
             conseils personnalisés sur la nutrition, les compléments, la souplesse et les activités de gym.
           </p>
+          
+          <div className="mt-6 inline-flex items-center text-brand-primary bg-brand-primary/10 px-4 py-2 rounded-full">
+            <CheckCircle className="h-5 w-5 mr-2" />
+            <span className="text-sm font-medium">Étape requise pour accéder au tableau de bord</span>
+          </div>
         </div>
         
         <WizardComponent />
