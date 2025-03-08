@@ -3,9 +3,11 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import UserMenu from '@/components/Auth/UserMenu';
+import { useAuth } from '@/hooks/useAuth';
 
 const Header = () => {
   const location = useLocation();
+  const { user } = useAuth();
   
   return (
     <motion.header 
@@ -30,9 +32,17 @@ const Header = () => {
             <NavLink to="/" current={location.pathname === "/"}>
               Accueil
             </NavLink>
-            <NavLink to="/dashboard" current={location.pathname === "/dashboard"}>
-              Dashboard
-            </NavLink>
+            
+            {user && (
+              <>
+                <NavLink to="/wizard" current={location.pathname === "/wizard"}>
+                  Profil
+                </NavLink>
+                <NavLink to="/dashboard" current={location.pathname === "/dashboard"}>
+                  Dashboard
+                </NavLink>
+              </>
+            )}
           </nav>
           
           <div className="flex items-center">
