@@ -13,11 +13,15 @@ export function getSystemPrompt(type: string): string {
          - Instructions de préparation étape par étape
       3. Inclure les macronutriments et calories par repas et le total journalier
       
-      Format ton plan nutritionnel en utilisant markdown pour une structure claire:
+      Format ton plan nutritionnel en utilisant markdown avec une structure stricte:
       - Utilise # pour les titres des jours (IMPORTANT: Utilise exactement "# Jour 1", "# Jour 2", etc.)
-      - Utilise ## pour les repas
-      - Utilise ### pour les informations détaillées (ingrédients, instructions)
+      - Utilise ## pour les repas (IMPORTANT: Utilise exactement "## Petit-déjeuner", "## Déjeuner", "## Dîner", "## Collation")
+      - Utilise ### pour les sections (IMPORTANT: Utilise exactement "### Ingrédients", "### Instructions", "### Valeurs nutritionnelles")
       - Utilise des listes à puces pour les étapes et ingrédients
+      
+      Pour les ingrédients, utilise toujours le format suivant:
+      - [quantité] [unité] [nom de l'ingrédient]
+      Exemple: "- 100 g de poulet"
       
       IMPORTANT: Assure-toi de créer exactement 7 jours numérotés de 1 à 7, en utilisant le format "# Jour X" pour chaque jour.
       

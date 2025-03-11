@@ -8,6 +8,8 @@ import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
 import NutritionGenerator from './NutritionGenerator';
 import NutritionPlanDisplay from './NutritionPlanDisplay';
 import ExportModal from './ExportModal';
+import { useAuth } from '@/hooks/useAuth';
+import { saveNutritionPlan } from '@/services/nutritionService';
 
 interface NutritionSectionProps {
   userData: UserData;
@@ -24,6 +26,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const { toast } = useToast();
   const nutritionPlanRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   const nutritionData = calculateNutrition(userData);
   const isDataComplete = nutritionData !== null;
@@ -33,8 +36,11 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     if (savedRequestId) {
       setCurrentRequestId(savedRequestId);
       checkExistingPlan(savedRequestId);
+    } else if (user) {
+      // Essayer de récupérer le plan le plus récent de l'utilisateur
+      fetchUserLatestPlan();
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     return () => {
@@ -43,6 +49,37 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       }
     };
   }, [pollingInterval]);
+
+  const fetchUserLatestPlan = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('nutrition_plans')
+        .select('content')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        if (error.code !== 'PGRST116') { // PGRST116 = pas de résultat, c'est normal s'il n'y a pas encore de plan
+          console.error("Erreur lors de la récupération du plan:", error);
+        }
+        return;
+      }
+      
+      if (data?.content) {
+        setNutritionPlan(data.content);
+        toast({
+          title: "Plan nutritionnel récupéré",
+          description: "Votre dernier plan nutritionnel personnalisé a été récupéré.",
+        });
+      }
+    } catch (err) {
+      console.error("Erreur lors de la récupération du plan utilisateur:", err);
+    }
+  };
 
   const checkExistingPlan = async (requestId: string) => {
     try {
@@ -60,6 +97,16 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       if (data) {
         if (data.status === 'completed' && data.content) {
           setNutritionPlan(data.content);
+          
+          // Sauvegarder le plan pour l'utilisateur connecté
+          if (user && data.content) {
+            try {
+              await saveNutritionPlan(data.content, user.id);
+            } catch (saveError) {
+              console.error("Erreur lors de la sauvegarde du plan:", saveError);
+            }
+          }
+          
           toast({
             title: "Plan nutritionnel récupéré",
             description: "Votre plan nutritionnel personnalisé précédemment généré a été récupéré.",
@@ -109,6 +156,16 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           setRegenerating(false);
           clearInterval(interval);
           setPollingInterval(null);
+          
+          // Sauvegarder le plan pour l'utilisateur connecté
+          if (user && data.content) {
+            try {
+              await saveNutritionPlan(data.content, user.id);
+            } catch (saveError) {
+              console.error("Erreur lors de la sauvegarde du plan:", saveError);
+            }
+          }
+          
           toast({
             title: "Plan nutritionnel généré",
             description: "Votre plan nutritionnel personnalisé est prêt !",
@@ -134,6 +191,15 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   };
 
   const generateNutritionPlan = async (regenerate = false) => {
+    if (!user) {
+      toast({
+        title: "Erreur",
+        description: "Vous devez être connecté pour générer un plan nutritionnel.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (regenerate) {
       setRegenerating(true);
     } else {
@@ -163,7 +229,8 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           prompt,
           type: 'nutrition',
           previousRecipes: regenerate ? previousRecipes : [],
-          requestId
+          requestId,
+          userId: user.id
         }
       });
 
@@ -186,6 +253,14 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         }
         
         setNutritionPlan(data.content);
+        
+        // Sauvegarder le plan pour l'utilisateur
+        try {
+          await saveNutritionPlan(data.content, user.id);
+        } catch (saveError) {
+          console.error("Erreur lors de la sauvegarde du plan:", saveError);
+        }
+        
         setLoading(false);
         setRegenerating(false);
       }
@@ -199,13 +274,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       setLoading(false);
       setRegenerating(false);
     }
-  };
-
-  const handleSendByEmail = () => {
-    toast({
-      title: "Envoi par email",
-      description: "Fonctionnalité à implémenter avec un service d'email",
-    });
   };
 
   if (!isDataComplete) {
@@ -242,7 +310,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
             nutritionPlan={nutritionPlan}
             nutritionPlanRef={nutritionPlanRef}
             regenerating={regenerating}
-            handleSendByEmail={handleSendByEmail}
             setNutritionPlan={setNutritionPlan}
             setExportModalOpen={setExportModalOpen}
             generateNutritionPlan={generateNutritionPlan}

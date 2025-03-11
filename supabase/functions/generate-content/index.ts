@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, previousRecipes = [], requestId } = await req.json();
+    const { prompt, type, previousRecipes = [], requestId, userId } = await req.json();
     
     // Vérifier que nous avons reçu un prompt
     if (!prompt) {
@@ -73,7 +73,7 @@ serve(async (req) => {
     // Si nous avons un requestId, nous pouvons gérer cela comme une tâche d'arrière-plan
     if (requestId && supabaseAdmin) {
       // Créer ou mettre à jour l'entrée dans la table de contenus générés
-      await handleBackgroundProcessing(requestId, type, generationPromise, supabaseAdmin);
+      await handleBackgroundProcessing(requestId, type, generationPromise, supabaseAdmin, userId);
       
       // Retourner immédiatement une réponse au client
       return new Response(JSON.stringify({ 

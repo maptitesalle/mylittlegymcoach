@@ -42,6 +42,36 @@ export type Database = {
         }
         Relationships: []
       }
+      nutrition_plans: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          ingredients: Json
+          recipes: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          ingredients?: Json
+          recipes?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          ingredients?: Json
+          recipes?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

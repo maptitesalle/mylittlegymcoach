@@ -6,7 +6,8 @@ export async function handleBackgroundProcessing(
   requestId: string,
   type: string,
   generationPromise: Promise<string>,
-  supabaseAdmin: ReturnType<typeof createClient>
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId?: string
 ): Promise<void> {
   // Créer ou mettre à jour l'entrée dans la table de contenus générés
   const { error: insertError } = await supabaseAdmin
@@ -15,6 +16,7 @@ export async function handleBackgroundProcessing(
       request_id: requestId,
       content_type: type,
       status: 'processing',
+      user_id: userId || null,
       updated_at: new Date().toISOString()
     }, { 
       onConflict: 'request_id' 
@@ -61,6 +63,27 @@ export async function handleBackgroundProcessing(
         
         if (updateError) {
           console.error('Erreur lors de la mise à jour du contenu généré:', updateError);
+        }
+        
+        // Si un utilisateur est associé au contenu, sauvegarder également dans sa table personnelle
+        if (userId && type === 'nutrition') {
+          try {
+            // Extraire les recettes et ingrédients
+            const { data, error } = await supabaseAdmin
+              .from('nutrition_plans')
+              .insert({
+                user_id: userId,
+                content: processedContent,
+                recipes: '[]', // Simplifié pour cet exemple, le client va parser
+                ingredients: '[]' // Simplifié pour cet exemple, le client va parser
+              });
+              
+            if (error) {
+              console.error('Erreur lors de la sauvegarde du plan nutritionnel:', error);
+            }
+          } catch (err) {
+            console.error('Exception lors de la sauvegarde du plan nutritionnel:', err);
+          }
         }
       }
     } catch (error) {

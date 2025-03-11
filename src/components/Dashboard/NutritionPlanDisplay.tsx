@@ -8,14 +8,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import ReactMarkdown from 'react-markdown';
-import { MailIcon, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { Download, RefreshCw, Loader2 } from 'lucide-react';
 import { MacroIcon } from './NutritionMetrics';
 
 interface NutritionPlanDisplayProps {
   nutritionPlan: string;
   nutritionPlanRef: React.RefObject<HTMLDivElement>;
   regenerating: boolean;
-  handleSendByEmail: () => void;
   setNutritionPlan: (plan: string | null) => void;
   setExportModalOpen: (open: boolean) => void;
   generateNutritionPlan: (regenerate: boolean) => void;
@@ -25,7 +24,6 @@ const NutritionPlanDisplay: React.FC<NutritionPlanDisplayProps> = ({
   nutritionPlan,
   nutritionPlanRef,
   regenerating,
-  handleSendByEmail,
   setNutritionPlan,
   setExportModalOpen,
   generateNutritionPlan
@@ -41,14 +39,6 @@ const NutritionPlanDisplay: React.FC<NutritionPlanDisplayProps> = ({
           Retour
         </Button>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleSendByEmail}
-          >
-            <MailIcon className="h-4 w-4 mr-1" />
-            Envoyer par email
-          </Button>
           <Button
             size="sm"
             variant="outline"
