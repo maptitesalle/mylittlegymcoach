@@ -15,7 +15,7 @@ import { toast } from '@/components/ui/use-toast';
 
 const Profile = () => {
   const { user } = useAuth();
-  const { userData, updateUserData, isLoading } = useUserData();
+  const { userData, updateUserData, loading } = useUserData();
   const [formData, setFormData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ const Profile = () => {
     }
   }, [userData]);
 
-  if (isLoading || !formData) {
+  if (loading || !formData) {
     return <div className="flex items-center justify-center h-full">Chargement...</div>;
   }
 
