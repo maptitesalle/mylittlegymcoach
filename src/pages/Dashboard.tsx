@@ -11,6 +11,7 @@ import {
   ArrowDown,
   ArrowUp
 } from 'lucide-react';
+import NutritionSection from '@/components/Dashboard/NutritionSection';
 
 // Function to determine flexibility level based on value
 const getFlexibilityLevel = (value: number | undefined) => {
@@ -78,10 +79,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="grid gap-8 md:grid-cols-2">
-          <div className="glass-card p-6">
-            <h3 className="text-xl font-medium text-brand-primary mb-4">Nutrition</h3>
-            <p className="text-gray-600">Les recommandations nutritionnelles seront affichées ici.</p>
-          </div>
+          <NutritionSection userData={userData} />
           
           <div className="glass-card p-6">
             <h3 className="text-xl font-medium text-brand-primary mb-4">Compléments</h3>
