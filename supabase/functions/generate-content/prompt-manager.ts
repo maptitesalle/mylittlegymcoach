@@ -60,7 +60,7 @@ export function getSystemPrompt(type: string): string {
 export function getMaxTokens(type: string): number {
   switch (type) {
     case 'nutrition':
-      return 4000; // Revenir à la limite de tokens d'origine
+      return 8000; // Augmenté à 8000 tokens comme demandé
     case 'supplements':
       return 1500; // Recommandations de compléments
     case 'flexibility':

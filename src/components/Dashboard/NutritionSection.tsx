@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { supabase } from '@/integrations/supabase/client';
@@ -121,7 +120,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           
           // Sauvegarder le plan pour l'utilisateur connecté s'il n'existe pas déjà
           try {
-            await saveNutritionPlan(data.content, user.id);
+            await saveNutritionPlan(data.content, user.id, requestId);
           } catch (saveError) {
             console.error("Erreur lors de la sauvegarde du plan:", saveError);
           }
@@ -212,7 +211,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
             
             // Sauvegarder le plan pour l'utilisateur connecté
             try {
-              await saveNutritionPlan(data.content, user.id);
+              await saveNutritionPlan(data.content, user.id, requestId);
             } catch (saveError) {
               console.error("Erreur lors de la sauvegarde du plan:", saveError);
             }
@@ -305,7 +304,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       } else if (data?.content) {
         if (regenerate) {
           const recipePattern = /##\s*(.*?)(?=\n)/g;
-          const currentRecipes = [...nutritionPlan?.matchAll(recipePattern) || []].map(match => match[1].trim());
+          const currentRecipes = Array.from(nutritionPlan?.matchAll(recipePattern) || []).map(match => match[1].trim());
           setPreviousRecipes([...previousRecipes, ...currentRecipes]);
         }
         
@@ -313,7 +312,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         
         // Sauvegarder le plan pour l'utilisateur
         try {
-          await saveNutritionPlan(data.content, user.id);
+          await saveNutritionPlan(data.content, user.id, requestId);
         } catch (saveError) {
           console.error("Erreur lors de la sauvegarde du plan:", saveError);
         }

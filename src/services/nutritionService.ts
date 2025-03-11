@@ -5,22 +5,60 @@ import { UserData } from '@/hooks/useUserData';
 import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
 import { useAuth } from '@/hooks/useAuth';
 
-export async function saveNutritionPlan(content: string, userId: string) {
+export async function saveNutritionPlan(content: string, userId: string, requestId?: string) {
   const { days, recipes, allIngredients } = parseNutritionPlan(content);
   
-  const { error } = await supabase
+  const planData = {
+    user_id: userId,
+    content,
+    recipes: JSON.stringify(recipes),
+    ingredients: JSON.stringify(allIngredients),
+    ...(requestId && { request_id: requestId }) // Ajouter request_id s'il est fourni
+  };
+  
+  // Vérifier si un plan avec ce requestId existe déjà
+  if (requestId) {
+    const { data: existingPlan, error: checkError } = await supabase
+      .from('nutrition_plans')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('request_id', requestId)
+      .maybeSingle();
+      
+    if (checkError) {
+      console.error('Erreur lors de la vérification du plan existant:', checkError);
+      throw checkError;
+    }
+    
+    // Mettre à jour le plan existant ou en créer un nouveau
+    if (existingPlan) {
+      const { error } = await supabase
+        .from('nutrition_plans')
+        .update(planData)
+        .eq('id', existingPlan.id);
+        
+      if (error) {
+        console.error('Erreur lors de la mise à jour du plan:', error);
+        throw error;
+      }
+      
+      return existingPlan.id;
+    }
+  }
+  
+  // Insérer un nouveau plan
+  const { data, error } = await supabase
     .from('nutrition_plans')
-    .insert({
-      user_id: userId,
-      content,
-      recipes: JSON.stringify(recipes),
-      ingredients: JSON.stringify(allIngredients)
-    });
+    .insert(planData)
+    .select('id')
+    .single();
     
   if (error) {
     console.error('Erreur lors de la sauvegarde du plan:', error);
     throw error;
   }
+  
+  return data?.id;
 }
 
 export async function getUserNutritionPlans(userId: string) {
