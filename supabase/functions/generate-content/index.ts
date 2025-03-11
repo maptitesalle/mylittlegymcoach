@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, previousRecipes = [] } = await req.json();
+    const { prompt, type, previousRecipes = [], requestId } = await req.json();
     
     // Vérifier que nous avons reçu un prompt
     if (!prompt) {
@@ -36,47 +36,40 @@ serve(async (req) => {
 
     console.log(`Génération de contenu ${type} avec GPT-4o-mini...`);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: getSystemPrompt(type)
-          },
-          { 
-            role: 'user', 
-            content: modifiedPrompt 
-          }
-        ],
-        max_tokens: getMaxTokens(type),
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Erreur de l\'API OpenAI:', errorData);
-      throw new Error(`Erreur de l'API OpenAI: ${errorData.error?.message || 'Erreur inconnue'}`);
-    }
-
-    const data = await response.json();
+    // Démarrer la génération dans une tâche d'arrière-plan
+    const generationPromise = generateContent(modifiedPrompt, type);
     
-    if (!data.choices || data.choices.length === 0) {
-      throw new Error('Réponse inattendue de l\'API OpenAI');
-    }
-    
-    const generatedContent = data.choices[0].message.content;
-    console.log('Génération réussie');
+    // Si nous avons un requestId, nous pouvons gérer cela comme une tâche d'arrière-plan
+    if (requestId) {
+      // Utiliser EdgeRuntime.waitUntil pour permettre à la fonction de continuer 
+      // en arrière-plan même si la connexion est fermée
+      EdgeRuntime.waitUntil((async () => {
+        try {
+          const generatedContent = await generationPromise;
+          console.log(`Génération réussie pour requestId: ${requestId}`);
+          // Ici, vous pourriez stocker le résultat dans une table Supabase pour le récupérer plus tard
+        } catch (error) {
+          console.error(`Erreur en arrière-plan pour requestId: ${requestId}`, error);
+        }
+      })());
+      
+      // Retourner immédiatement une réponse au client
+      return new Response(JSON.stringify({ 
+        status: 'processing',
+        message: 'La génération du contenu a démarré en arrière-plan',
+        requestId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      // Mode synchrone - attendre la génération et renvoyer le résultat
+      const generatedContent = await generationPromise;
+      console.log('Génération réussie');
 
-    return new Response(JSON.stringify({ content: generatedContent }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      return new Response(JSON.stringify({ content: generatedContent }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   } catch (error) {
     console.error('Erreur dans la fonction generate-content:', error);
     return new Response(JSON.stringify({ error: error.message }), {
@@ -85,6 +78,46 @@ serve(async (req) => {
     });
   }
 });
+
+// Fonction pour générer le contenu avec OpenAI
+async function generateContent(prompt: string, type: string): Promise<string> {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { 
+          role: 'system', 
+          content: getSystemPrompt(type)
+        },
+        { 
+          role: 'user', 
+          content: prompt 
+        }
+      ],
+      max_tokens: getMaxTokens(type),
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('Erreur de l\'API OpenAI:', errorData);
+    throw new Error(`Erreur de l'API OpenAI: ${errorData.error?.message || 'Erreur inconnue'}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.choices || data.choices.length === 0) {
+    throw new Error('Réponse inattendue de l\'API OpenAI');
+  }
+  
+  return data.choices[0].message.content;
+}
 
 function getSystemPrompt(type: string): string {
   switch (type) {

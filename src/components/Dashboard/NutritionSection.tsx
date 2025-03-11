@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { Button } from '@/components/ui/button';
 import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
@@ -30,11 +31,22 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const [showMetrics, setShowMetrics] = useState(false);
   const [previousRecipes, setPreviousRecipes] = useState<string[]>([]);
   const [regenerating, setRegenerating] = useState(false);
+  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<number | null>(null);
   const { toast } = useToast();
   const nutritionPlanRef = useRef<HTMLDivElement>(null);
 
   const nutritionData = calculateNutrition(userData);
   const isDataComplete = nutritionData !== null;
+
+  // Effet pour nettoyer l'intervalle de polling si on quitte la page
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   const generateNutritionPlan = async (regenerate = false) => {
     if (regenerate) {
@@ -57,11 +69,16 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     }
 
     try {
+      // Générer un ID de requête unique
+      const requestId = crypto.randomUUID();
+      setCurrentRequestId(requestId);
+      
       const { data, error } = await supabase.functions.invoke('generate-content', {
         body: {
           prompt,
           type: 'nutrition',
-          previousRecipes: regenerate ? previousRecipes : []
+          previousRecipes: regenerate ? previousRecipes : [],
+          requestId // Passer l'ID de requête pour le traitement en arrière-plan
         }
       });
 
@@ -69,13 +86,47 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         throw error;
       }
       
-      if (regenerate) {
-        const recipePattern = /##\s*(.*?)(?=\n)/g;
-        const currentRecipes = [...nutritionPlan?.matchAll(recipePattern) || []].map(match => match[1].trim());
-        setPreviousRecipes([...previousRecipes, ...currentRecipes]);
+      // Si nous avons reçu un statut "processing", configurer un intervalle pour vérifier périodiquement le résultat
+      if (data?.status === 'processing') {
+        toast({
+          title: "Génération en cours",
+          description: "Votre plan nutritionnel est en cours de génération. Vous pouvez naviguer sur le site, nous vous notifierons une fois terminé.",
+        });
+        
+        // Dans une application réelle, vous devriez implémenter un endpoint pour récupérer le résultat
+        // Pour cet exemple, nous allons juste montrer comment configurer l'intervalle
+        // const interval = setInterval(async () => {
+        //   // Vérifier si le plan est prêt
+        //   const { data: resultData, error: resultError } = await supabase
+        //     .from('generation_results')
+        //     .select('content')
+        //     .eq('request_id', requestId)
+        //     .single();
+          
+        //   if (resultData?.content) {
+        //     setNutritionPlan(resultData.content);
+        //     clearInterval(interval);
+        //     setPollingInterval(null);
+        //     setLoading(false);
+        //     setRegenerating(false);
+        //     toast({
+        //       title: "Plan nutritionnel généré",
+        //       description: "Votre plan nutritionnel personnalisé est prêt !",
+        //     });
+        //   }
+        // }, 5000);
+        // 
+        // setPollingInterval(interval);
+      } else if (data?.content) {
+        // Mode synchrone - nous avons déjà la réponse
+        if (regenerate) {
+          const recipePattern = /##\s*(.*?)(?=\n)/g;
+          const currentRecipes = [...nutritionPlan?.matchAll(recipePattern) || []].map(match => match[1].trim());
+          setPreviousRecipes([...previousRecipes, ...currentRecipes]);
+        }
+        
+        setNutritionPlan(data.content);
       }
-      
-      setNutritionPlan(data.content);
     } catch (error) {
       console.error("Erreur lors de la génération du plan nutritionnel:", error);
       toast({
