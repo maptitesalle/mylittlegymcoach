@@ -1,4 +1,3 @@
-
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,12 +10,11 @@ import Login from "@/pages/Login";
 import Wizard from "@/pages/Wizard";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/NotFound";
+import Profile from "@/pages/Profile";
 import "@/App.css";
 
-// Create a client for React Query
 const queryClient = new QueryClient();
 
-// Protected route component that requires login
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
@@ -31,7 +29,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Dashboard route component that requires wizard completion
 const DashboardRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const { userData } = useUserData();
@@ -44,7 +41,6 @@ const DashboardRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
   
-  // Check if user has completed the wizard
   const hasCompletedWizard = userData && Object.keys(userData).length > 0;
   
   if (!hasCompletedWizard) {
@@ -54,7 +50,6 @@ const DashboardRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Home route component that redirects logged in users to wizard/dashboard
 const HomeRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const { userData } = useUserData();
@@ -64,7 +59,6 @@ const HomeRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (user) {
-    // If user has data, redirect to dashboard, otherwise to wizard
     const hasCompletedWizard = userData && Object.keys(userData).length > 0;
     if (hasCompletedWizard) {
       return <Navigate to="/dashboard" replace />;
@@ -106,6 +100,14 @@ function AppRoutes() {
                 <DashboardRoute>
                   <Dashboard />
                 </DashboardRoute>
+              }
+            />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
               }
             />
             <Route path="*" element={<NotFound />} />
