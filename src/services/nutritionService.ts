@@ -23,15 +23,16 @@ export async function saveNutritionPlan(content: string, userId: string, request
       .select('id')
       .eq('user_id', userId)
       .eq('request_id', requestId)
-      .maybeSingle();
+      .single();
       
     if (checkError) {
-      console.error('Erreur lors de la vérification du plan existant:', checkError);
-      throw checkError;
-    }
-    
-    // Mettre à jour le plan existant ou en créer un nouveau
-    if (existingPlan) {
+      // Si aucun plan n'est trouvé, c'est normal et on continue pour en créer un nouveau
+      if (checkError.code !== 'PGRST116') {
+        console.error('Erreur lors de la vérification du plan existant:', checkError);
+        throw checkError;
+      }
+    } else if (existingPlan) {
+      // Mettre à jour le plan existant
       const { error } = await supabase
         .from('nutrition_plans')
         .update(planData)
