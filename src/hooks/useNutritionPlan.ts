@@ -1,10 +1,10 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { saveNutritionPlan } from '@/services/nutritionService';
+import { saveNutritionPlan, generateNutritionPlanContent } from '@/services/nutritionService';
 import { useAuth } from '@/hooks/useAuth';
+import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator'; 
 
 export function useNutritionPlan(userData: UserData) {
   const [nutritionPlan, setNutritionPlan] = useState<string | null>(null);
@@ -23,7 +23,6 @@ export function useNutritionPlan(userData: UserData) {
       setCurrentRequestId(savedRequestId);
       checkExistingPlan(savedRequestId);
     } else if (user) {
-      // Essayer de récupérer le plan le plus récent de l'utilisateur
       fetchUserLatestPlan();
     }
   }, [user]);
@@ -49,7 +48,7 @@ export function useNutritionPlan(userData: UserData) {
         .single();
       
       if (error) {
-        if (error.code !== 'PGRST116') { // PGRST116 = pas de résultat, c'est normal s'il n'y a pas encore de plan
+        if (error.code !== 'PGRST116') {
           console.error("Erreur lors de la récupération du plan:", error);
         }
         return;
@@ -71,7 +70,6 @@ export function useNutritionPlan(userData: UserData) {
     if (!user) return;
     
     try {
-      // D'abord, vérifier dans la table nutrition_plans pour ce user spécifique
       const { data: userPlan, error: userPlanError } = await supabase
         .from('nutrition_plans')
         .select('content')
@@ -92,7 +90,6 @@ export function useNutritionPlan(userData: UserData) {
         return;
       }
       
-      // Sinon, vérifier dans generated_content
       const { data, error } = await supabase
         .from('generated_content')
         .select('content, status, user_id')
@@ -106,12 +103,10 @@ export function useNutritionPlan(userData: UserData) {
         return;
       }
 
-      // Vérifier que le contenu appartient à l'utilisateur actuel
       if (data && data.user_id === user.id) {
         if (data.status === 'completed' && data.content) {
           setNutritionPlan(data.content);
           
-          // Sauvegarder le plan pour l'utilisateur connecté s'il n'existe pas déjà
           try {
             await saveNutritionPlan(data.content, user.id, requestId);
           } catch (saveError) {
@@ -138,7 +133,6 @@ export function useNutritionPlan(userData: UserData) {
           localStorage.removeItem('nutritionPlanRequestId');
         }
       } else {
-        // Si le requestId ne correspond pas à l'utilisateur actuel, nettoyer
         localStorage.removeItem('nutritionPlanRequestId');
       }
     } catch (err) {
@@ -159,7 +153,6 @@ export function useNutritionPlan(userData: UserData) {
       }
       
       try {
-        // Vérifier d'abord dans la table nutrition_plans
         const { data: userPlan, error: userPlanError } = await supabase
           .from('nutrition_plans')
           .select('content')
@@ -185,7 +178,6 @@ export function useNutritionPlan(userData: UserData) {
           return;
         }
         
-        // Sinon, vérifier dans generated_content
         const { data, error } = await supabase
           .from('generated_content')
           .select('content, status, user_id')
@@ -199,7 +191,6 @@ export function useNutritionPlan(userData: UserData) {
           return;
         }
 
-        // Vérifier que le contenu appartient à l'utilisateur actuel
         if (data && data.user_id === user.id) {
           if (data.status === 'completed' && data.content) {
             setNutritionPlan(data.content);
@@ -208,7 +199,6 @@ export function useNutritionPlan(userData: UserData) {
             clearInterval(interval);
             setPollingInterval(null);
             
-            // Sauvegarder le plan pour l'utilisateur connecté
             try {
               await saveNutritionPlan(data.content, user.id, requestId);
             } catch (saveError) {
@@ -232,7 +222,6 @@ export function useNutritionPlan(userData: UserData) {
             });
           }
         } else {
-          // Si le requestId ne correspond pas à l'utilisateur actuel, nettoyer
           clearInterval(interval);
           setPollingInterval(null);
           localStorage.removeItem('nutritionPlanRequestId');
@@ -261,27 +250,18 @@ export function useNutritionPlan(userData: UserData) {
       setLoading(true);
     }
 
-    const prompt = generateNutritionPrompt(userData);
-    
-    if (!prompt) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de générer le plan nutritionnel, données incomplètes.",
-        variant: "destructive"
-      });
-      setLoading(false);
-      setRegenerating(false);
-      return;
-    }
-
     try {
       const requestId = crypto.randomUUID();
       setCurrentRequestId(requestId);
       localStorage.setItem('nutritionPlanRequestId', requestId);
       
+      if (!user.id) {
+        throw new Error("ID utilisateur non disponible");
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-content', {
         body: {
-          prompt,
+          prompt: generateNutritionPrompt(userData),
           type: 'nutrition',
           previousRecipes: regenerate ? previousRecipes : [],
           requestId,
@@ -309,7 +289,6 @@ export function useNutritionPlan(userData: UserData) {
         
         setNutritionPlan(data.content);
         
-        // Sauvegarder le plan pour l'utilisateur
         try {
           await saveNutritionPlan(data.content, user.id, requestId);
         } catch (saveError) {

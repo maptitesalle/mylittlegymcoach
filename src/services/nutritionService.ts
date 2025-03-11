@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { parseNutritionPlan } from '@/utils/nutritionParser';
 import { UserData } from '@/hooks/useUserData';
 import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
-import { useAuth } from '@/hooks/useAuth';
 
 export async function saveNutritionPlan(content: string, userId: string, requestId?: string) {
   const { days, recipes, allIngredients } = parseNutritionPlan(content);
@@ -13,37 +12,39 @@ export async function saveNutritionPlan(content: string, userId: string, request
     content,
     recipes: JSON.stringify(recipes),
     ingredients: JSON.stringify(allIngredients),
-    ...(requestId && { request_id: requestId }) // Ajouter request_id s'il est fourni
+    ...(requestId && { request_id: requestId })
   };
   
   // Vérifier si un plan avec ce requestId existe déjà
   if (requestId) {
-    const { data: existingPlan, error: checkError } = await supabase
-      .from('nutrition_plans')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('request_id', requestId)
-      .single();
-      
-    if (checkError) {
-      // Si aucun plan n'est trouvé, c'est normal et on continue pour en créer un nouveau
-      if (checkError.code !== 'PGRST116') {
-        console.error('Erreur lors de la vérification du plan existant:', checkError);
-        throw checkError;
-      }
-    } else if (existingPlan) {
-      // Mettre à jour le plan existant
-      const { error } = await supabase
+    try {
+      const { data: existingPlan, error: checkError } = await supabase
         .from('nutrition_plans')
-        .update(planData)
-        .eq('id', existingPlan.id);
+        .select('id')
+        .eq('user_id', userId)
+        .eq('request_id', requestId)
+        .single();
         
-      if (error) {
-        console.error('Erreur lors de la mise à jour du plan:', error);
+      if (!checkError && existingPlan) {
+        // Mettre à jour le plan existant
+        const { error } = await supabase
+          .from('nutrition_plans')
+          .update(planData)
+          .eq('id', existingPlan.id);
+          
+        if (error) {
+          console.error('Erreur lors de la mise à jour du plan:', error);
+          throw error;
+        }
+        
+        return existingPlan.id;
+      }
+    } catch (error) {
+      // Si l'erreur est "No rows returned", c'est normal car nous allons créer un nouveau plan
+      if (error.code !== 'PGRST116') {
+        console.error('Erreur lors de la vérification du plan existant:', error);
         throw error;
       }
-      
-      return existingPlan.id;
     }
   }
   
