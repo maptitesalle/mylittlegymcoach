@@ -92,12 +92,29 @@ serve(async (req) => {
           const generatedContent = await generationPromise;
           console.log(`Génération réussie pour requestId: ${requestId}`);
           
+          // Améliorer le formatage des jours pour éviter le problème des deux "Jour 1"
+          let processedContent = generatedContent;
+          if (type === 'nutrition') {
+            // Remplacer les titres génériques qui causent des problèmes
+            processedContent = processedContent.replace(/# Plan Nutritionnel(.*?)(?=# Jour 1|\Z)/s, '');
+            // S'assurer que les jours sont correctement formatés
+            for (let i = 1; i <= 7; i++) {
+              const dayRegex = new RegExp(`# Jour ${i}`, 'g');
+              if (!processedContent.match(dayRegex)) {
+                processedContent = processedContent.replace(
+                  /# Jour \d+(?![\s\S]*# Jour \d+)/,
+                  `# Jour ${i}`
+                );
+              }
+            }
+          }
+          
           // Stocker le résultat dans la table de contenus générés
           if (supabaseAdmin) {
             const { error: updateError } = await supabaseAdmin
               .from('generated_content')
               .update({
-                content: generatedContent,
+                content: processedContent,
                 status: 'completed',
                 updated_at: new Date().toISOString()
               })
@@ -205,10 +222,12 @@ function getSystemPrompt(type: string): string {
       3. Inclure les macronutriments et calories par repas et le total journalier
       
       Format ton plan nutritionnel en utilisant markdown pour une structure claire:
-      - Utilise # pour les grands titres (jours)
+      - Utilise # pour les titres des jours (IMPORTANT: Utilise exactement "# Jour 1", "# Jour 2", etc.)
       - Utilise ## pour les repas
       - Utilise ### pour les informations détaillées (ingrédients, instructions)
       - Utilise des listes à puces pour les étapes et ingrédients
+      
+      IMPORTANT: Assure-toi de créer exactement 7 jours numérotés de 1 à 7, en utilisant le format "# Jour X" pour chaque jour.
       
       Ta réponse doit être organisée et lisible, avec une attention particulière aux détails nutritionnels liés aux objectifs spécifiques de l'utilisateur.`;
       

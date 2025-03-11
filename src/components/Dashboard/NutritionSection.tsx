@@ -1,9 +1,21 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { Button } from '@/components/ui/button';
 import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
 import { calculateNutrition } from '@/utils/nutritionCalculator';
-import { Loader2, ArrowDown, Info, MailIcon, RefreshCw, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { 
+  Loader2, 
+  ArrowDown, 
+  Info, 
+  MailIcon, 
+  RefreshCw, 
+  Download,
+  Apple,
+  Beef,
+  Egg,
+  Fish
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Tooltip,
@@ -19,10 +31,24 @@ import {
 } from "@/components/ui/accordion";
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
+import ExportModal from './ExportModal';
 
 interface NutritionSectionProps {
   userData: UserData;
 }
+
+const MacroIcon = ({ type }: { type: 'protein' | 'carbs' | 'fats' }) => {
+  switch (type) {
+    case 'protein':
+      return <Egg className="h-5 w-5 text-blue-600" />;
+    case 'carbs':
+      return <Apple className="h-5 w-5 text-green-600" />;
+    case 'fats':
+      return <Fish className="h-5 w-5 text-yellow-600" />;
+    default:
+      return null;
+  }
+};
 
 const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const [nutritionPlan, setNutritionPlan] = useState<string | null>(null);
@@ -32,6 +58,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const [regenerating, setRegenerating] = useState(false);
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<number | null>(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const { toast } = useToast();
   const nutritionPlanRef = useRef<HTMLDivElement>(null);
 
@@ -318,15 +345,18 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
                 <div className="pt-2 mt-2 border-t">
                   <div className="text-sm font-medium mb-2">Répartition des macronutriments:</div>
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-blue-100 p-2 rounded text-center">
+                    <div className="bg-blue-100 p-3 rounded text-center flex flex-col items-center">
+                      <div className="mb-1"><MacroIcon type="protein" /></div>
                       <div className="font-medium text-blue-800">{nutritionData.macros.protein}g</div>
                       <div className="text-xs text-blue-600">Protéines</div>
                     </div>
-                    <div className="bg-green-100 p-2 rounded text-center">
+                    <div className="bg-green-100 p-3 rounded text-center flex flex-col items-center">
+                      <div className="mb-1"><MacroIcon type="carbs" /></div>
                       <div className="font-medium text-green-800">{nutritionData.macros.carbs}g</div>
                       <div className="text-xs text-green-600">Glucides</div>
                     </div>
-                    <div className="bg-yellow-100 p-2 rounded text-center">
+                    <div className="bg-yellow-100 p-3 rounded text-center flex flex-col items-center">
+                      <div className="mb-1"><MacroIcon type="fats" /></div>
                       <div className="font-medium text-yellow-800">{nutritionData.macros.fats}g</div>
                       <div className="text-xs text-yellow-600">Lipides</div>
                     </div>
@@ -378,18 +408,10 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const element = document.createElement("a");
-                  const file = new Blob([nutritionPlan], {type: 'text/plain'});
-                  element.href = URL.createObjectURL(file);
-                  element.download = "plan_nutritionnel.md";
-                  document.body.appendChild(element);
-                  element.click();
-                  document.body.removeChild(element);
-                }}
+                onClick={() => setExportModalOpen(true)}
               >
                 <Download className="h-4 w-4 mr-1" />
-                Télécharger
+                Exporter
               </Button>
               <Button
                 size="sm"
@@ -415,26 +437,88 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
             
             <div className="p-4 prose prose-sm max-w-none">
               <Accordion type="single" collapsible className="w-full">
-                {nutritionPlan.split(/(?=# Jour \d+)/).filter(day => day.trim()).map((day, index) => {
-                  const dayMatch = day.match(/# (Jour \d+)/);
-                  const dayTitle = dayMatch ? dayMatch[1] : `Jour ${index + 1}`;
-                  
-                  return (
-                    <AccordionItem value={`day-${index}`} key={`day-${index}`}>
-                      <AccordionTrigger className="text-lg font-medium py-4 hover:no-underline">
-                        {dayTitle}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <ReactMarkdown>
-                          {day.replace(/# Jour \d+\n/, '')}
-                        </ReactMarkdown>
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
+                {nutritionPlan
+                  .split(/(?=# Jour \d+)/)
+                  .filter(day => day.trim())
+                  .map((day, index) => {
+                    const dayMatch = day.match(/# Jour (\d+)/);
+                    const dayNumber = dayMatch ? parseInt(dayMatch[1]) : index + 1;
+                    
+                    // Extraire les macronutriments quotidiens si présents
+                    const macroMatch = day.match(/Total journalier[^\n]*?(\d+)[^\n]*?kcal[^\n]*?(\d+)g[^\n]*?(\d+)g[^\n]*?(\d+)g/);
+                    const calories = macroMatch ? macroMatch[1] : "N/A";
+                    const proteins = macroMatch ? macroMatch[2] : "N/A";
+                    const carbs = macroMatch ? macroMatch[3] : "N/A";
+                    const fats = macroMatch ? macroMatch[4] : "N/A";
+                    
+                    return (
+                      <AccordionItem value={`day-${dayNumber}`} key={`day-${dayNumber}`} className="border-b border-gray-200">
+                        <AccordionTrigger className="py-4 px-3 hover:no-underline hover:bg-gray-50 rounded-md">
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-lg font-medium text-brand-primary">Jour {dayNumber}</span>
+                            
+                            {macroMatch && (
+                              <div className="hidden md:flex items-center space-x-4 text-sm">
+                                <div className="flex items-center">
+                                  <span className="text-gray-600 mr-1">{calories} kcal</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <MacroIcon type="protein" />
+                                  <span className="ml-1 text-blue-600">{proteins}g</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <MacroIcon type="carbs" />
+                                  <span className="ml-1 text-green-600">{carbs}g</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <MacroIcon type="fats" />
+                                  <span className="ml-1 text-yellow-600">{fats}g</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pt-2 pb-4">
+                          {/* Affichage des macros pour mobile */}
+                          {macroMatch && (
+                            <div className="md:hidden flex justify-between mb-4 p-2 bg-gray-50 rounded">
+                              <div className="text-center">
+                                <div className="text-gray-700 font-medium">{calories}</div>
+                                <div className="text-xs text-gray-500">kcal</div>
+                              </div>
+                              <div className="text-center flex flex-col items-center">
+                                <MacroIcon type="protein" />
+                                <div className="text-xs text-blue-600">{proteins}g</div>
+                              </div>
+                              <div className="text-center flex flex-col items-center">
+                                <MacroIcon type="carbs" />
+                                <div className="text-xs text-green-600">{carbs}g</div>
+                              </div>
+                              <div className="text-center flex flex-col items-center">
+                                <MacroIcon type="fats" />
+                                <div className="text-xs text-yellow-600">{fats}g</div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <ReactMarkdown className="prose-h2:text-lg prose-h2:font-medium prose-h2:text-brand-primary prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:font-medium prose-h3:mt-3 prose-h3:mb-1">
+                            {day.replace(/# Jour \d+\n/, '')}
+                          </ReactMarkdown>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
               </Accordion>
             </div>
           </div>
+          
+          {exportModalOpen && (
+            <ExportModal 
+              open={exportModalOpen} 
+              onClose={() => setExportModalOpen(false)} 
+              nutritionPlan={nutritionPlan}
+            />
+          )}
         </div>
       )}
     </div>
