@@ -9,6 +9,9 @@ export async function handleBackgroundProcessing(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId?: string
 ): Promise<void> {
+  // Log pour déboguer
+  console.log(`Démarrage du traitement en arrière-plan pour requestId: ${requestId}, userId: ${userId || 'Non fourni'}`);
+  
   // Créer ou mettre à jour l'entrée dans la table de contenus générés
   const { error: insertError } = await supabaseAdmin
     .from('generated_content')
@@ -31,7 +34,7 @@ export async function handleBackgroundProcessing(
   EdgeRuntime.waitUntil((async () => {
     try {
       const generatedContent = await generationPromise;
-      console.log(`Génération réussie pour requestId: ${requestId}`);
+      console.log(`Génération réussie pour requestId: ${requestId}, userId: ${userId || 'Non fourni'}`);
       
       // Améliorer le formatage des jours pour éviter le problème des deux "Jour 1"
       let processedContent = generatedContent;
@@ -68,18 +71,54 @@ export async function handleBackgroundProcessing(
         // Si un utilisateur est associé au contenu, sauvegarder également dans sa table personnelle
         if (userId && type === 'nutrition') {
           try {
-            // Extraire les recettes et ingrédients
-            const { data, error } = await supabaseAdmin
+            console.log(`Sauvegarde du plan nutritionnel pour l'utilisateur: ${userId}`);
+            
+            // Vérifier si un plan existe déjà avec ce requestId
+            const { data: existingPlans, error: checkError } = await supabaseAdmin
               .from('nutrition_plans')
-              .insert({
-                user_id: userId,
-                content: processedContent,
-                recipes: '[]', // Simplifié pour cet exemple, le client va parser
-                ingredients: '[]' // Simplifié pour cet exemple, le client va parser
-              });
+              .select('id')
+              .eq('user_id', userId)
+              .eq('request_id', requestId);
               
-            if (error) {
-              console.error('Erreur lors de la sauvegarde du plan nutritionnel:', error);
+            if (checkError) {
+              console.error('Erreur lors de la vérification des plans existants:', checkError);
+            }
+            
+            // Si un plan avec ce requestId existe déjà, le mettre à jour
+            if (existingPlans && existingPlans.length > 0) {
+              const { error: updatePlanError } = await supabaseAdmin
+                .from('nutrition_plans')
+                .update({
+                  content: processedContent,
+                  recipes: '[]', // Simplifié pour cet exemple, le client va parser
+                  ingredients: '[]', // Simplifié pour cet exemple, le client va parser
+                  updated_at: new Date().toISOString()
+                })
+                .eq('user_id', userId)
+                .eq('request_id', requestId);
+                
+              if (updatePlanError) {
+                console.error('Erreur lors de la mise à jour du plan nutritionnel:', updatePlanError);
+              } else {
+                console.log(`Plan nutritionnel mis à jour pour l'utilisateur ${userId}`);
+              }
+            } else {
+              // Sinon, insérer un nouveau plan
+              const { error: insertPlanError } = await supabaseAdmin
+                .from('nutrition_plans')
+                .insert({
+                  user_id: userId,
+                  content: processedContent,
+                  recipes: '[]', // Simplifié pour cet exemple, le client va parser
+                  ingredients: '[]', // Simplifié pour cet exemple, le client va parser
+                  request_id: requestId // Ajout du requestId pour pouvoir le retrouver plus tard
+                });
+                
+              if (insertPlanError) {
+                console.error('Erreur lors de la sauvegarde du plan nutritionnel:', insertPlanError);
+              } else {
+                console.log(`Nouveau plan nutritionnel créé pour l'utilisateur ${userId}`);
+              }
             }
           } catch (err) {
             console.error('Exception lors de la sauvegarde du plan nutritionnel:', err);

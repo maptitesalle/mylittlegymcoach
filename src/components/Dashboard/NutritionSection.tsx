@@ -33,7 +33,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
 
   useEffect(() => {
     const savedRequestId = localStorage.getItem('nutritionPlanRequestId');
-    if (savedRequestId) {
+    if (savedRequestId && user) {
       setCurrentRequestId(savedRequestId);
       checkExistingPlan(savedRequestId);
     } else if (user) {
@@ -82,10 +82,30 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   };
 
   const checkExistingPlan = async (requestId: string) => {
+    if (!user) return;
+    
     try {
+      // D'abord, vérifier dans la table nutrition_plans pour ce user spécifique
+      const { data: userPlan, error: userPlanError } = await supabase
+        .from('nutrition_plans')
+        .select('content')
+        .eq('user_id', user.id)
+        .eq('request_id', requestId)
+        .maybeSingle();
+        
+      if (!userPlanError && userPlan?.content) {
+        setNutritionPlan(userPlan.content);
+        toast({
+          title: "Plan nutritionnel récupéré",
+          description: "Votre plan nutritionnel personnalisé a été récupéré.",
+        });
+        return;
+      }
+      
+      // Sinon, vérifier dans generated_content
       const { data, error } = await supabase
         .from('generated_content')
-        .select('content, status')
+        .select('content, status, user_id')
         .eq('request_id', requestId)
         .maybeSingle();
 
@@ -94,22 +114,21 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         return;
       }
 
-      if (data) {
+      // Vérifier que le contenu appartient à l'utilisateur actuel
+      if (data && data.user_id === user.id) {
         if (data.status === 'completed' && data.content) {
           setNutritionPlan(data.content);
           
-          // Sauvegarder le plan pour l'utilisateur connecté
-          if (user && data.content) {
-            try {
-              await saveNutritionPlan(data.content, user.id);
-            } catch (saveError) {
-              console.error("Erreur lors de la sauvegarde du plan:", saveError);
-            }
+          // Sauvegarder le plan pour l'utilisateur connecté s'il n'existe pas déjà
+          try {
+            await saveNutritionPlan(data.content, user.id);
+          } catch (saveError) {
+            console.error("Erreur lors de la sauvegarde du plan:", saveError);
           }
           
           toast({
             title: "Plan nutritionnel récupéré",
-            description: "Votre plan nutritionnel personnalisé précédemment généré a été récupéré.",
+            description: "Votre plan nutritionnel personnalisé a été récupéré.",
           });
         } else if (data.status === 'processing') {
           setLoading(true);
@@ -126,6 +145,9 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           });
           localStorage.removeItem('nutritionPlanRequestId');
         }
+      } else {
+        // Si le requestId ne correspond pas à l'utilisateur actuel, nettoyer
+        localStorage.removeItem('nutritionPlanRequestId');
       }
     } catch (err) {
       console.error("Erreur lors de la vérification du plan existant:", err);
@@ -138,10 +160,39 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     }
 
     const interval = window.setInterval(async () => {
+      if (!user) {
+        clearInterval(interval);
+        setPollingInterval(null);
+        return;
+      }
+      
       try {
+        // Vérifier d'abord dans la table nutrition_plans
+        const { data: userPlan, error: userPlanError } = await supabase
+          .from('nutrition_plans')
+          .select('content')
+          .eq('user_id', user.id)
+          .eq('request_id', requestId)
+          .maybeSingle();
+          
+        if (!userPlanError && userPlan?.content) {
+          setNutritionPlan(userPlan.content);
+          setLoading(false);
+          setRegenerating(false);
+          clearInterval(interval);
+          setPollingInterval(null);
+          
+          toast({
+            title: "Plan nutritionnel généré",
+            description: "Votre plan nutritionnel personnalisé est prêt !",
+          });
+          return;
+        }
+        
+        // Sinon, vérifier dans generated_content
         const { data, error } = await supabase
           .from('generated_content')
-          .select('content, status')
+          .select('content, status, user_id')
           .eq('request_id', requestId)
           .maybeSingle();
 
@@ -150,37 +201,43 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           return;
         }
 
-        if (data && data.status === 'completed' && data.content) {
-          setNutritionPlan(data.content);
-          setLoading(false);
-          setRegenerating(false);
-          clearInterval(interval);
-          setPollingInterval(null);
-          
-          // Sauvegarder le plan pour l'utilisateur connecté
-          if (user && data.content) {
+        // Vérifier que le contenu appartient à l'utilisateur actuel
+        if (data && data.user_id === user.id) {
+          if (data.status === 'completed' && data.content) {
+            setNutritionPlan(data.content);
+            setLoading(false);
+            setRegenerating(false);
+            clearInterval(interval);
+            setPollingInterval(null);
+            
+            // Sauvegarder le plan pour l'utilisateur connecté
             try {
               await saveNutritionPlan(data.content, user.id);
             } catch (saveError) {
               console.error("Erreur lors de la sauvegarde du plan:", saveError);
             }
+            
+            toast({
+              title: "Plan nutritionnel généré",
+              description: "Votre plan nutritionnel personnalisé est prêt !",
+            });
+          } else if (data.status === 'error') {
+            setLoading(false);
+            setRegenerating(false);
+            clearInterval(interval);
+            setPollingInterval(null);
+            localStorage.removeItem('nutritionPlanRequestId');
+            toast({
+              title: "Erreur",
+              description: "Une erreur est survenue lors de la génération du plan.",
+              variant: "destructive"
+            });
           }
-          
-          toast({
-            title: "Plan nutritionnel généré",
-            description: "Votre plan nutritionnel personnalisé est prêt !",
-          });
-        } else if (data && data.status === 'error') {
-          setLoading(false);
-          setRegenerating(false);
+        } else {
+          // Si le requestId ne correspond pas à l'utilisateur actuel, nettoyer
           clearInterval(interval);
           setPollingInterval(null);
           localStorage.removeItem('nutritionPlanRequestId');
-          toast({
-            title: "Erreur",
-            description: "Une erreur est survenue lors de la génération du plan.",
-            variant: "destructive"
-          });
         }
       } catch (err) {
         console.error("Erreur lors du polling:", err);

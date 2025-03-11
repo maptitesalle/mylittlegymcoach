@@ -41,6 +41,7 @@ serve(async (req) => {
     }
 
     console.log(`Génération de contenu ${type} avec GPT-4o-mini...`);
+    console.log(`UserId fourni: ${userId || 'Non fourni'}`);
     
     // Initialiser le client Supabase (uniquement si l'URL et la clé de service sont disponibles)
     const supabaseAdmin = supabaseUrl && supabaseServiceKey 

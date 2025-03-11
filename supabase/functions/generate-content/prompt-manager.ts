@@ -60,7 +60,7 @@ export function getSystemPrompt(type: string): string {
 export function getMaxTokens(type: string): number {
   switch (type) {
     case 'nutrition':
-      return 12000; // Augmentation de la limite de tokens pour le plan nutritionnel détaillé sur 7 jours
+      return 4000; // Revenir à la limite de tokens d'origine
     case 'supplements':
       return 1500; // Recommandations de compléments
     case 'flexibility':

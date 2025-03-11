@@ -41,7 +41,8 @@ export async function getUserNutritionPlans(userId: string) {
 export async function generateNutritionPlanContent(
   userData: UserData,
   previousRecipes: string[] = [],
-  requestId: string
+  requestId: string,
+  userId: string
 ) {
   const prompt = generateNutritionPrompt(userData);
   
@@ -54,7 +55,8 @@ export async function generateNutritionPlanContent(
       prompt,
       type: 'nutrition',
       previousRecipes,
-      requestId
+      requestId,
+      userId
     }
   });
   
