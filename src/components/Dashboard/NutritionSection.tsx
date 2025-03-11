@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
 import { calculateNutrition } from '@/utils/nutritionCalculator';
 import { Loader2, ArrowDown, Info, MailIcon, RefreshCw, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Tooltip,
   TooltipContent,
@@ -56,30 +57,17 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     }
 
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
-      if (!supabaseUrl) {
-        throw new Error("L'URL Supabase n'est pas définie");
-      }
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-content`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('generate-content', {
+        body: {
           prompt,
           type: 'nutrition',
           previousRecipes: regenerate ? previousRecipes : []
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la génération: ${response.statusText}`);
+      if (error) {
+        throw error;
       }
-
-      const data = await response.json();
       
       if (regenerate) {
         const recipePattern = /##\s*(.*?)(?=\n)/g;
