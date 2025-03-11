@@ -17,34 +17,26 @@ export async function saveNutritionPlan(content: string, userId: string, request
   
   // Vérifier si un plan avec ce requestId existe déjà
   if (requestId) {
-    try {
-      const { data: existingPlan, error: checkError } = await supabase
+    const { data: existingPlan, error: checkError } = await supabase
+      .from('nutrition_plans')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('request_id', requestId)
+      .maybeSingle();
+        
+    if (!checkError && existingPlan) {
+      // Mettre à jour le plan existant
+      const { error } = await supabase
         .from('nutrition_plans')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('request_id', requestId)
-        .single();
-        
-      if (!checkError && existingPlan) {
-        // Mettre à jour le plan existant
-        const { error } = await supabase
-          .from('nutrition_plans')
-          .update(planData)
-          .eq('id', existingPlan.id);
+        .update(planData)
+        .eq('id', existingPlan.id);
           
-        if (error) {
-          console.error('Erreur lors de la mise à jour du plan:', error);
-          throw error;
-        }
-        
-        return existingPlan.id;
-      }
-    } catch (error) {
-      // Si l'erreur est "No rows returned", c'est normal car nous allons créer un nouveau plan
-      if (error.code !== 'PGRST116') {
-        console.error('Erreur lors de la vérification du plan existant:', error);
+      if (error) {
+        console.error('Erreur lors de la mise à jour du plan:', error);
         throw error;
       }
+        
+      return existingPlan.id;
     }
   }
   
