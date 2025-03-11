@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,13 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-content`, {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      if (!supabaseUrl) {
+        throw new Error("L'URL Supabase n'est pas définie");
+      }
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-content`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +82,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       const data = await response.json();
       
       if (regenerate) {
-        // Extraire les noms de recettes du plan actuel pour ne pas les répéter
         const recipePattern = /##\s*(.*?)(?=\n)/g;
         const currentRecipes = [...nutritionPlan?.matchAll(recipePattern) || []].map(match => match[1].trim());
         setPreviousRecipes([...previousRecipes, ...currentRecipes]);
@@ -98,7 +102,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   };
 
   const handleSendByEmail = () => {
-    // Simulation d'envoi par email
     toast({
       title: "Envoi par email",
       description: "Fonctionnalité à implémenter avec un service d'email",
@@ -300,7 +303,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
               <p className="text-sm text-gray-500">Basé sur vos données personnelles et objectifs</p>
             </div>
             
-            {/* Utilisez ReactMarkdown pour parser le contenu markdown */}
             <div className="p-4 prose prose-sm max-w-none">
               <Accordion type="single" collapsible className="w-full">
                 {nutritionPlan.split(/(?=# Jour \d+)/).filter(day => day.trim()).map((day, index) => {

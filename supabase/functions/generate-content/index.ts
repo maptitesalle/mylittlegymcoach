@@ -18,13 +18,23 @@ serve(async (req) => {
   try {
     const { prompt, type, previousRecipes = [] } = await req.json();
     
-    // Modify the prompt to exclude previous recipes if they exist
+    // Vérifier que nous avons reçu un prompt
+    if (!prompt) {
+      throw new Error('Prompt non fourni');
+    }
+    
+    // Vérifier que l'API key est disponible
+    if (!openAIApiKey) {
+      throw new Error('Clé API OpenAI non configurée');
+    }
+    
+    // Modifier le prompt pour exclure les recettes précédentes si elles existent
     let modifiedPrompt = prompt;
     if (type === 'nutrition' && previousRecipes.length > 0) {
       modifiedPrompt += `\n\nImportant: Ne pas proposer à nouveau les recettes suivantes qui ont déjà été suggérées:\n${previousRecipes.join('\n')}`;
     }
 
-    console.log(`Generating ${type} content with GPT-4o-mini...`);
+    console.log(`Génération de contenu ${type} avec GPT-4o-mini...`);
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -51,18 +61,24 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('OpenAI API Error:', errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+      console.error('Erreur de l\'API OpenAI:', errorData);
+      throw new Error(`Erreur de l'API OpenAI: ${errorData.error?.message || 'Erreur inconnue'}`);
     }
 
     const data = await response.json();
+    
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('Réponse inattendue de l\'API OpenAI');
+    }
+    
     const generatedContent = data.choices[0].message.content;
+    console.log('Génération réussie');
 
     return new Response(JSON.stringify({ content: generatedContent }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in generate-content function:', error);
+    console.error('Erreur dans la fonction generate-content:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
