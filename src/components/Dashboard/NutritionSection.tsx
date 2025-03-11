@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { Button } from '@/components/ui/button';
@@ -39,7 +38,14 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const nutritionData = calculateNutrition(userData);
   const isDataComplete = nutritionData !== null;
 
-  // Effet pour nettoyer l'intervalle de polling si on quitte la page
+  useEffect(() => {
+    const savedRequestId = localStorage.getItem('nutritionPlanRequestId');
+    if (savedRequestId) {
+      setCurrentRequestId(savedRequestId);
+      checkExistingPlan(savedRequestId);
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (pollingInterval) {
@@ -47,6 +53,95 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       }
     };
   }, [pollingInterval]);
+
+  const checkExistingPlan = async (requestId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('generated_content')
+        .select('content, status')
+        .eq('request_id', requestId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erreur lors de la récupération du plan existant:", error);
+        return;
+      }
+
+      if (data) {
+        if (data.status === 'completed' && data.content) {
+          setNutritionPlan(data.content);
+          toast({
+            title: "Plan nutritionnel récupéré",
+            description: "Votre plan nutritionnel personnalisé précédemment généré a été récupéré.",
+          });
+        } else if (data.status === 'processing') {
+          setLoading(true);
+          startPolling(requestId);
+          toast({
+            title: "Génération en cours",
+            description: "Votre plan nutritionnel est toujours en cours de génération.",
+          });
+        } else if (data.status === 'error') {
+          toast({
+            title: "Erreur",
+            description: "Une erreur est survenue lors de la génération précédente.",
+            variant: "destructive"
+          });
+          localStorage.removeItem('nutritionPlanRequestId');
+        }
+      }
+    } catch (err) {
+      console.error("Erreur lors de la vérification du plan existant:", err);
+    }
+  };
+
+  const startPolling = (requestId: string) => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    const interval = window.setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('generated_content')
+          .select('content, status')
+          .eq('request_id', requestId)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Erreur lors du polling:", error);
+          return;
+        }
+
+        if (data && data.status === 'completed' && data.content) {
+          setNutritionPlan(data.content);
+          setLoading(false);
+          setRegenerating(false);
+          clearInterval(interval);
+          setPollingInterval(null);
+          toast({
+            title: "Plan nutritionnel généré",
+            description: "Votre plan nutritionnel personnalisé est prêt !",
+          });
+        } else if (data && data.status === 'error') {
+          setLoading(false);
+          setRegenerating(false);
+          clearInterval(interval);
+          setPollingInterval(null);
+          localStorage.removeItem('nutritionPlanRequestId');
+          toast({
+            title: "Erreur",
+            description: "Une erreur est survenue lors de la génération du plan.",
+            variant: "destructive"
+          });
+        }
+      } catch (err) {
+        console.error("Erreur lors du polling:", err);
+      }
+    }, 5000);
+
+    setPollingInterval(interval);
+  };
 
   const generateNutritionPlan = async (regenerate = false) => {
     if (regenerate) {
@@ -69,16 +164,16 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     }
 
     try {
-      // Générer un ID de requête unique
       const requestId = crypto.randomUUID();
       setCurrentRequestId(requestId);
+      localStorage.setItem('nutritionPlanRequestId', requestId);
       
       const { data, error } = await supabase.functions.invoke('generate-content', {
         body: {
           prompt,
           type: 'nutrition',
           previousRecipes: regenerate ? previousRecipes : [],
-          requestId // Passer l'ID de requête pour le traitement en arrière-plan
+          requestId
         }
       });
 
@@ -86,39 +181,14 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         throw error;
       }
       
-      // Si nous avons reçu un statut "processing", configurer un intervalle pour vérifier périodiquement le résultat
       if (data?.status === 'processing') {
         toast({
           title: "Génération en cours",
           description: "Votre plan nutritionnel est en cours de génération. Vous pouvez naviguer sur le site, nous vous notifierons une fois terminé.",
         });
         
-        // Dans une application réelle, vous devriez implémenter un endpoint pour récupérer le résultat
-        // Pour cet exemple, nous allons juste montrer comment configurer l'intervalle
-        // const interval = setInterval(async () => {
-        //   // Vérifier si le plan est prêt
-        //   const { data: resultData, error: resultError } = await supabase
-        //     .from('generation_results')
-        //     .select('content')
-        //     .eq('request_id', requestId)
-        //     .single();
-          
-        //   if (resultData?.content) {
-        //     setNutritionPlan(resultData.content);
-        //     clearInterval(interval);
-        //     setPollingInterval(null);
-        //     setLoading(false);
-        //     setRegenerating(false);
-        //     toast({
-        //       title: "Plan nutritionnel généré",
-        //       description: "Votre plan nutritionnel personnalisé est prêt !",
-        //     });
-        //   }
-        // }, 5000);
-        // 
-        // setPollingInterval(interval);
+        startPolling(requestId);
       } else if (data?.content) {
-        // Mode synchrone - nous avons déjà la réponse
         if (regenerate) {
           const recipePattern = /##\s*(.*?)(?=\n)/g;
           const currentRecipes = [...nutritionPlan?.matchAll(recipePattern) || []].map(match => match[1].trim());
@@ -126,6 +196,8 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         }
         
         setNutritionPlan(data.content);
+        setLoading(false);
+        setRegenerating(false);
       }
     } catch (error) {
       console.error("Erreur lors de la génération du plan nutritionnel:", error);
@@ -134,7 +206,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
         description: error instanceof Error ? error.message : "Une erreur est survenue",
         variant: "destructive"
       });
-    } finally {
       setLoading(false);
       setRegenerating(false);
     }
@@ -281,7 +352,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
               )}
             </Button>
             <p className="text-xs text-gray-500 mt-2">
-              Ce processus peut prendre quelques instants
+              Ce processus peut prendre quelques instants. Vous pouvez naviguer sur d'autres pages pendant la génération.
             </p>
           </div>
         </div>

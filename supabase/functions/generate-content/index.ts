@@ -1,8 +1,11 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,20 +39,88 @@ serve(async (req) => {
 
     console.log(`Génération de contenu ${type} avec GPT-4o-mini...`);
     
+    // Initialiser le client Supabase (uniquement si l'URL et la clé de service sont disponibles)
+    const supabaseAdmin = supabaseUrl && supabaseServiceKey 
+      ? createClient(supabaseUrl, supabaseServiceKey)
+      : null;
+    
+    // Si requestId est fourni, vérifier si on a déjà un résultat pour cette requête
+    if (requestId && supabaseAdmin) {
+      const { data: existingContent, error: fetchError } = await supabaseAdmin
+        .from('generated_content')
+        .select('content, status')
+        .eq('request_id', requestId)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error('Erreur lors de la vérification du contenu existant:', fetchError);
+      } else if (existingContent && existingContent.status === 'completed') {
+        console.log(`Contenu déjà généré pour requestId: ${requestId}`);
+        return new Response(JSON.stringify({ 
+          content: existingContent.content 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+    
     // Démarrer la génération dans une tâche d'arrière-plan
     const generationPromise = generateContent(modifiedPrompt, type);
     
     // Si nous avons un requestId, nous pouvons gérer cela comme une tâche d'arrière-plan
-    if (requestId) {
+    if (requestId && supabaseAdmin) {
+      // Créer ou mettre à jour l'entrée dans la table de contenus générés
+      const { error: insertError } = await supabaseAdmin
+        .from('generated_content')
+        .upsert({
+          request_id: requestId,
+          content_type: type,
+          status: 'processing',
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'request_id' 
+        });
+      
+      if (insertError) {
+        console.error('Erreur lors de la création de l\'enregistrement initial:', insertError);
+      }
+      
       // Utiliser EdgeRuntime.waitUntil pour permettre à la fonction de continuer 
       // en arrière-plan même si la connexion est fermée
       EdgeRuntime.waitUntil((async () => {
         try {
           const generatedContent = await generationPromise;
           console.log(`Génération réussie pour requestId: ${requestId}`);
-          // Ici, vous pourriez stocker le résultat dans une table Supabase pour le récupérer plus tard
+          
+          // Stocker le résultat dans la table de contenus générés
+          if (supabaseAdmin) {
+            const { error: updateError } = await supabaseAdmin
+              .from('generated_content')
+              .update({
+                content: generatedContent,
+                status: 'completed',
+                updated_at: new Date().toISOString()
+              })
+              .eq('request_id', requestId);
+            
+            if (updateError) {
+              console.error('Erreur lors de la mise à jour du contenu généré:', updateError);
+            }
+          }
         } catch (error) {
           console.error(`Erreur en arrière-plan pour requestId: ${requestId}`, error);
+          
+          // Mettre à jour le statut en cas d'erreur
+          if (supabaseAdmin) {
+            await supabaseAdmin
+              .from('generated_content')
+              .update({
+                status: 'error',
+                content: error.message,
+                updated_at: new Date().toISOString()
+              })
+              .eq('request_id', requestId);
+          }
         }
       })());
       
