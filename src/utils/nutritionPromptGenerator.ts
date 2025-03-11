@@ -23,6 +23,9 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   // Extraire les pathologies
   const health = userData.health || {};
   
+  // Extraire le niveau d'activité
+  const activityLevel = userData.activityLevel?.nap || 1.2; // Par défaut à sédentaire si non spécifié
+  
   // Construire le prompt pour GPT
   return `
   Crée un plan nutritionnel personnalisé pour cette personne sur 7 jours:
@@ -35,13 +38,14 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   - Pourcentage de masse grasse: ${fatPercentage}%
   - Âge métabolique: ${metabolicAge || 'Non renseigné'} ans
   - VO2max: ${vo2max || 'Non renseigné'}
+  - Niveau d'activité: ${userData.activityLevel?.label || 'Non renseigné'} (NAP: ${activityLevel})
   
-  Besoins nutritionnels calculés (selon les formules Katch-McArdle):
-  - Masse maigre (LBM): ${nutritionData.lbm} kg
-  - Métabolisme de base (BMR): ${nutritionData.bmr} calories
-  - Dépense énergétique totale (TDEE): ${nutritionData.tdee} calories
+  Calculs nutritionnels (selon Katch-McArdle):
+  - Masse maigre (LBM): ${nutritionData.lbm} kg [calculée avec: Poids total × (1 – % de masse grasse)]
+  - Métabolisme de base (BMR): ${nutritionData.bmr} calories [calculé avec: 370 + (21.6 × LBM)]
+  - Dépense énergétique totale (TDEE): ${nutritionData.tdee} calories [calculée avec: BMR × NAP de ${activityLevel}]
   - Besoins caloriques quotidiens ajustés: ${nutritionData.targetCalories} calories
-  - Macronutriments recommandés: ${nutritionData.macros.protein}g de protéines, ${nutritionData.macros.carbs}g de glucides, ${nutritionData.macros.fats}g de lipides
+  - Macronutriments recommandés: ${nutritionData.macros.protein}g de protéines (${Math.round(nutritionData.macros.protein * 4)}kcal), ${nutritionData.macros.carbs}g de glucides (${Math.round(nutritionData.macros.carbs * 4)}kcal), ${nutritionData.macros.fats}g de lipides (${Math.round(nutritionData.macros.fats * 9)}kcal)
   
   Objectifs:
   ${goals.muscleMassGain ? '- Prise de masse musculaire\n' : ''}
@@ -69,14 +73,21 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   2. Chaque jour doit respecter les macronutriments recommandés (${nutritionData.macros.protein}g de protéines, ${nutritionData.macros.carbs}g de glucides, ${nutritionData.macros.fats}g de lipides) et le total calorique (${nutritionData.targetCalories} calories)
   3. Pour chaque repas, fournis:
      - Le nom de la recette
-     - La liste complète des ingrédients avec quantités précises
-     - Les instructions de préparation
+     - La liste complète des ingrédients avec quantités précises en grammes
+     - Les instructions de préparation claires et détaillées
      - Les macronutriments du repas (protéines, glucides, lipides) et calories
   4. À la fin de chaque jour, fournis un récapitulatif des macronutriments et calories totales
   5. Utilise des aliments naturels, peu transformés et facilement accessibles
   6. Tiens compte des contraintes alimentaires et pathologies mentionnées
-  7. Adapte les recettes aux objectifs spécifiques
+  7. Adapte les recettes aux objectifs spécifiques (gain musculaire, perte de poids, etc.)
+  8. Varie les recettes et les ingrédients au maximum pour éviter la monotonie
+  9. Assure-toi que les repas sont savoureux et pratiques à préparer
   
-  Utilise un format structuré en markdown pour faciliter la lecture et l'exportation.
+  Utilise un format structuré en markdown pour faciliter la lecture et l'exportation:
+  - Titre principal pour chaque jour (# Jour X)
+  - Sous-titres pour chaque repas (## Petit-déjeuner, ## Déjeuner, etc.)
+  - Sous-sections pour les détails (### Ingrédients, ### Instructions, ### Valeurs nutritionnelles)
+  - Listes à puces pour les ingrédients et instructions
+  - Tableau pour le récapitulatif journalier
   `;
 };
