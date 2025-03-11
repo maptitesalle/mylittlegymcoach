@@ -25,7 +25,7 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   
   // Construire le prompt pour GPT
   return `
-  Tu es un expert en nutrition et en planification de repas. Crée un plan nutritionnel personnalisé pour cette personne:
+  Crée un plan nutritionnel personnalisé pour cette personne sur 7 jours:
   
   Données personnelles:
   - Âge: ${age} ans
@@ -64,13 +64,19 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   ${health.hypothyroidism ? '- Hypothyroïdie\n' : ''}
   ${health.otherInfo ? `- Autres: ${health.otherInfo}\n` : ''}
   
-  Sur la base de ces informations, fournis:
-  1. Un plan alimentaire détaillé sur 7 jours avec 3 repas et 2 collations par jour, en respectant les contraintes alimentaires mentionnées
-  2. Une liste de courses hebdomadaire organisée par catégories (protéines, légumes, fruits, céréales, etc.)
-  3. Des conseils sur le timing des repas par rapport aux entraînements pour maximiser la récupération et la performance
-  4. Des recommandations spécifiques pour atteindre les objectifs mentionnés
-  5. Des alternatives pour les aliments qui ne correspondent pas aux contraintes alimentaires
+  Directives importantes:
+  1. Crée un plan alimentaire précis pour 7 jours, avec exactement 3 repas et 1 collation par jour
+  2. Chaque jour doit respecter les macronutriments recommandés (${nutritionData.macros.protein}g de protéines, ${nutritionData.macros.carbs}g de glucides, ${nutritionData.macros.fats}g de lipides) et le total calorique (${nutritionData.targetCalories} calories)
+  3. Pour chaque repas, fournis:
+     - Le nom de la recette
+     - La liste complète des ingrédients avec quantités précises
+     - Les instructions de préparation
+     - Les macronutriments du repas (protéines, glucides, lipides) et calories
+  4. À la fin de chaque jour, fournis un récapitulatif des macronutriments et calories totales
+  5. Utilise des aliments naturels, peu transformés et facilement accessibles
+  6. Tiens compte des contraintes alimentaires et pathologies mentionnées
+  7. Adapte les recettes aux objectifs spécifiques
   
-  Utilise des aliments naturels, peu transformés et facilement accessibles. Inclus des options végétariennes quand c'est possible et tiens compte des pathologies pour éviter les aliments contre-indiqués.
+  Utilise un format structuré en markdown pour faciliter la lecture et l'exportation.
   `;
 };

@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useUserData } from '@/hooks/useUserData';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +11,7 @@ import {
   ArrowUp
 } from 'lucide-react';
 import NutritionSection from '@/components/Dashboard/NutritionSection';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Function to determine flexibility level based on value
 const getFlexibilityLevel = (value: number | undefined) => {
@@ -41,6 +41,7 @@ const getFlexibilityIcon = (level: string | null) => {
 const Dashboard: React.FC = () => {
   const { userData } = useUserData();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("nutrition");
 
   if (!userData || Object.keys(userData).length === 0) {
     return (
@@ -78,103 +79,110 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2">
-          <NutritionSection userData={userData} />
+        <Tabs defaultValue="nutrition" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
+            <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
+            <TabsTrigger value="supplements">Compléments</TabsTrigger>
+            <TabsTrigger value="flexibility">Souplesse</TabsTrigger>
+          </TabsList>
           
-          <div className="glass-card p-6">
-            <h3 className="text-xl font-medium text-brand-primary mb-4">Compléments</h3>
-            <p className="text-gray-600">Les recommandations de compléments seront affichées ici.</p>
-          </div>
+          <TabsContent value="nutrition" className="space-y-4">
+            <NutritionSection userData={userData} />
+          </TabsContent>
           
-          <div className="glass-card p-6">
-            <h3 className="text-xl font-medium text-brand-primary mb-4">Souplesse</h3>
-            {flexibilityData ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <span className="font-medium">Zone</span>
-                  <span className="font-medium">Niveau</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span>Cou</span>
-                  <div className="flex items-center space-x-2">
-                    {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.neck))}
-                    <span className={`
-                      ${getFlexibilityLevel(flexibilityData.neck) === 'faible' ? 'text-red-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.neck) === 'normal' ? 'text-amber-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.neck) === 'excellent' ? 'text-green-500' : ''}
-                    `}>
-                      {getFlexibilityLevel(flexibilityData.neck) || 'Non défini'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span>Épaules</span>
-                  <div className="flex items-center space-x-2">
-                    {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.shoulders))}
-                    <span className={`
-                      ${getFlexibilityLevel(flexibilityData.shoulders) === 'faible' ? 'text-red-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.shoulders) === 'normal' ? 'text-amber-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.shoulders) === 'excellent' ? 'text-green-500' : ''}
-                    `}>
-                      {getFlexibilityLevel(flexibilityData.shoulders) || 'Non défini'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span>Lombaires</span>
-                  <div className="flex items-center space-x-2">
-                    {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.lumbar))}
-                    <span className={`
-                      ${getFlexibilityLevel(flexibilityData.lumbar) === 'faible' ? 'text-red-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.lumbar) === 'normal' ? 'text-amber-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.lumbar) === 'excellent' ? 'text-green-500' : ''}
-                    `}>
-                      {getFlexibilityLevel(flexibilityData.lumbar) || 'Non défini'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span>Ischios</span>
-                  <div className="flex items-center space-x-2">
-                    {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.hamstrings))}
-                    <span className={`
-                      ${getFlexibilityLevel(flexibilityData.hamstrings) === 'faible' ? 'text-red-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.hamstrings) === 'normal' ? 'text-amber-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.hamstrings) === 'excellent' ? 'text-green-500' : ''}
-                    `}>
-                      {getFlexibilityLevel(flexibilityData.hamstrings) || 'Non défini'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span>Hanches</span>
-                  <div className="flex items-center space-x-2">
-                    {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.hips))}
-                    <span className={`
-                      ${getFlexibilityLevel(flexibilityData.hips) === 'faible' ? 'text-red-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.hips) === 'normal' ? 'text-amber-500' : ''}
-                      ${getFlexibilityLevel(flexibilityData.hips) === 'excellent' ? 'text-green-500' : ''}
-                    `}>
-                      {getFlexibilityLevel(flexibilityData.hips) || 'Non défini'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-600">Données de souplesse non disponibles.</p>
-            )}
-          </div>
+          <TabsContent value="supplements" className="space-y-4">
+            <div className="glass-card p-6">
+              <h3 className="text-xl font-medium text-brand-primary mb-4">Compléments</h3>
+              <p className="text-gray-600">Les recommandations de compléments seront affichées ici.</p>
+            </div>
+          </TabsContent>
           
-          <div className="glass-card p-6">
-            <h3 className="text-xl font-medium text-brand-primary mb-4">Sport à la salle</h3>
-            <p className="text-gray-600">Les recommandations d'exercices en salle seront affichées ici.</p>
-          </div>
-        </div>
+          <TabsContent value="flexibility" className="space-y-4">
+            <div className="glass-card p-6">
+              <h3 className="text-xl font-medium text-brand-primary mb-4">Souplesse</h3>
+              {flexibilityData ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="font-medium">Zone</span>
+                    <span className="font-medium">Niveau</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span>Cou</span>
+                    <div className="flex items-center space-x-2">
+                      {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.neck))}
+                      <span className={`
+                        ${getFlexibilityLevel(flexibilityData.neck) === 'faible' ? 'text-red-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.neck) === 'normal' ? 'text-amber-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.neck) === 'excellent' ? 'text-green-500' : ''}
+                      `}>
+                        {getFlexibilityLevel(flexibilityData.neck) || 'Non défini'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span>Épaules</span>
+                    <div className="flex items-center space-x-2">
+                      {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.shoulders))}
+                      <span className={`
+                        ${getFlexibilityLevel(flexibilityData.shoulders) === 'faible' ? 'text-red-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.shoulders) === 'normal' ? 'text-amber-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.shoulders) === 'excellent' ? 'text-green-500' : ''}
+                      `}>
+                        {getFlexibilityLevel(flexibilityData.shoulders) || 'Non défini'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span>Lombaires</span>
+                    <div className="flex items-center space-x-2">
+                      {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.lumbar))}
+                      <span className={`
+                        ${getFlexibilityLevel(flexibilityData.lumbar) === 'faible' ? 'text-red-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.lumbar) === 'normal' ? 'text-amber-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.lumbar) === 'excellent' ? 'text-green-500' : ''}
+                      `}>
+                        {getFlexibilityLevel(flexibilityData.lumbar) || 'Non défini'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span>Ischios</span>
+                    <div className="flex items-center space-x-2">
+                      {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.hamstrings))}
+                      <span className={`
+                        ${getFlexibilityLevel(flexibilityData.hamstrings) === 'faible' ? 'text-red-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.hamstrings) === 'normal' ? 'text-amber-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.hamstrings) === 'excellent' ? 'text-green-500' : ''}
+                      `}>
+                        {getFlexibilityLevel(flexibilityData.hamstrings) || 'Non défini'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span>Hanches</span>
+                    <div className="flex items-center space-x-2">
+                      {getFlexibilityIcon(getFlexibilityLevel(flexibilityData.hips))}
+                      <span className={`
+                        ${getFlexibilityLevel(flexibilityData.hips) === 'faible' ? 'text-red-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.hips) === 'normal' ? 'text-amber-500' : ''}
+                        ${getFlexibilityLevel(flexibilityData.hips) === 'excellent' ? 'text-green-500' : ''}
+                      `}>
+                        {getFlexibilityLevel(flexibilityData.hips) || 'Non défini'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600">Données de souplesse non disponibles.</p>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </motion.div>
     </div>
   );

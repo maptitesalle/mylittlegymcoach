@@ -1,16 +1,24 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { Button } from '@/components/ui/button';
 import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
 import { calculateNutrition } from '@/utils/nutritionCalculator';
-import { Loader2, ArrowDown, Info } from 'lucide-react';
+import { Loader2, ArrowDown, Info, MailIcon, RefreshCw, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
 
 interface NutritionSectionProps {
   userData: UserData;
@@ -20,45 +28,87 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const [nutritionPlan, setNutritionPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
+  const [previousRecipes, setPreviousRecipes] = useState<string[]>([]);
+  const [regenerating, setRegenerating] = useState(false);
+  const { toast } = useToast();
+  const nutritionPlanRef = useRef<HTMLDivElement>(null);
 
   const nutritionData = calculateNutrition(userData);
   const isDataComplete = nutritionData !== null;
 
-  const generateNutritionPlan = async () => {
-    setLoading(true);
+  const generateNutritionPlan = async (regenerate = false) => {
+    if (regenerate) {
+      setRegenerating(true);
+    } else {
+      setLoading(true);
+    }
+
+    const prompt = generateNutritionPrompt(userData);
+    
+    if (!prompt) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de générer le plan nutritionnel, données incomplètes.",
+        variant: "destructive"
+      });
+      setLoading(false);
+      setRegenerating(false);
+      return;
+    }
+
     try {
-      // Dans une application réelle, vous appelleriez ici l'API OpenAI 
-      // avec le prompt généré par generateNutritionPrompt(userData)
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-content`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          prompt,
+          type: 'nutrition',
+          previousRecipes: regenerate ? previousRecipes : []
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la génération: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
-      // Simuler un appel API avec setTimeout
-      setTimeout(() => {
-        // Exemple de plan nutritionnel (dans la vraie implémentation, il viendrait de l'API OpenAI)
-        const examplePlan = `
-# Plan Nutritionnel Personnalisé
-
-## Résumé
-- Calories quotidiennes: ${nutritionData?.targetCalories} kcal
-- Protéines: ${nutritionData?.macros.protein}g (${Math.round(nutritionData?.macros.protein! * 4 / nutritionData?.targetCalories! * 100)}%)
-- Glucides: ${nutritionData?.macros.carbs}g (${Math.round(nutritionData?.macros.carbs! * 4 / nutritionData?.targetCalories! * 100)}%)
-- Lipides: ${nutritionData?.macros.fats}g (${Math.round(nutritionData?.macros.fats! * 9 / nutritionData?.targetCalories! * 100)}%)
-
-## Jour 1
-- **Petit-déjeuner**: Omelette aux épinards (3 œufs) avec avocat et pain complet
-- **Collation**: Yaourt grec avec myrtilles et une poignée d'amandes
-- **Déjeuner**: Poitrine de poulet grillée avec quinoa et légumes rôtis
-- **Collation**: Smoothie protéiné (lait d'amande, banane, protéine en poudre)
-- **Dîner**: Saumon grillé avec patate douce et brocoli
-
-*Note: Ceci est un exemple simplifié. Le plan réel généré par l'API serait beaucoup plus détaillé.*
-        `;
-        
-        setNutritionPlan(examplePlan);
-        setLoading(false);
-      }, 2000);
+      if (regenerate) {
+        // Extraire les noms de recettes du plan actuel pour ne pas les répéter
+        const recipePattern = /##\s*(.*?)(?=\n)/g;
+        const currentRecipes = [...nutritionPlan?.matchAll(recipePattern) || []].map(match => match[1].trim());
+        setPreviousRecipes([...previousRecipes, ...currentRecipes]);
+      }
+      
+      setNutritionPlan(data.content);
     } catch (error) {
       console.error("Erreur lors de la génération du plan nutritionnel:", error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
+        variant: "destructive"
+      });
+    } finally {
       setLoading(false);
+      setRegenerating(false);
     }
+  };
+
+  const handleSendByEmail = () => {
+    // Simulation d'envoi par email
+    toast({
+      title: "Envoi par email",
+      description: "Fonctionnalité à implémenter avec un service d'email",
+    });
+  };
+
+  const extractRecipeNames = (markdownContent: string): string[] => {
+    if (!markdownContent) return [];
+    const recipePattern = /##\s*(.*?)(?=\n)/g;
+    return [...markdownContent.matchAll(recipePattern)].map(match => match[1].trim());
   };
 
   if (!isDataComplete) {
@@ -175,7 +225,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           
           <div className="text-center">
             <Button 
-              onClick={generateNutritionPlan} 
+              onClick={() => generateNutritionPlan(false)} 
               disabled={loading}
               className="bg-brand-primary hover:bg-brand-primary/90"
             >
@@ -194,33 +244,84 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="prose prose-sm max-w-none">
-            <pre className="whitespace-pre-wrap bg-gray-50 p-4 rounded-md text-sm overflow-auto max-h-96">
-              {nutritionPlan}
-            </pre>
-          </div>
-          <div className="flex justify-between">
+        <div className="space-y-4" ref={nutritionPlanRef}>
+          <div className="flex justify-between mb-4">
             <Button 
               variant="outline" 
+              size="sm"
               onClick={() => setNutritionPlan(null)}
             >
               Retour
             </Button>
-            <Button
-              onClick={() => {
-                // Fonction pour télécharger le plan
-                const element = document.createElement("a");
-                const file = new Blob([nutritionPlan], {type: 'text/plain'});
-                element.href = URL.createObjectURL(file);
-                element.download = "plan_nutritionnel.md";
-                document.body.appendChild(element);
-                element.click();
-                document.body.removeChild(element);
-              }}
-            >
-              Télécharger le plan
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSendByEmail}
+              >
+                <MailIcon className="h-4 w-4 mr-1" />
+                Envoyer par email
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const element = document.createElement("a");
+                  const file = new Blob([nutritionPlan], {type: 'text/plain'});
+                  element.href = URL.createObjectURL(file);
+                  element.download = "plan_nutritionnel.md";
+                  document.body.appendChild(element);
+                  element.click();
+                  document.body.removeChild(element);
+                }}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Télécharger
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => generateNutritionPlan(true)}
+                disabled={regenerating}
+              >
+                {regenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                )}
+                Régénérer
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border shadow-sm">
+            <div className="p-4 border-b">
+              <h2 className="text-xl font-semibold text-brand-primary">Plan Nutritionnel Personnalisé</h2>
+              <p className="text-sm text-gray-500">Basé sur vos données personnelles et objectifs</p>
+            </div>
+            
+            {/* Utilisez ReactMarkdown pour parser le contenu markdown */}
+            <div className="p-4 prose prose-sm max-w-none">
+              <Accordion type="single" collapsible className="w-full">
+                {nutritionPlan.split(/(?=# Jour \d+)/).filter(day => day.trim()).map((day, index) => {
+                  const dayMatch = day.match(/# (Jour \d+)/);
+                  const dayTitle = dayMatch ? dayMatch[1] : `Jour ${index + 1}`;
+                  
+                  return (
+                    <AccordionItem value={`day-${index}`} key={`day-${index}`}>
+                      <AccordionTrigger className="text-lg font-medium py-4 hover:no-underline">
+                        {dayTitle}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ReactMarkdown>
+                          {day.replace(/# Jour \d+\n/, '')}
+                        </ReactMarkdown>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            </div>
           </div>
         </div>
       )}
