@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { UserButton } from './Auth/UserMenu';
+import UserMenu from './Auth/UserMenu';
 import { useAuth } from '@/hooks/useAuth';
 import { Logo } from './Logo';
 import { User } from 'lucide-react';
@@ -26,7 +26,7 @@ const Header: React.FC = () => {
               <User className="h-5 w-5" />
               <span>Profil</span>
             </Link>
-            <UserButton />
+            <UserMenu />
           </div>
         )}
       </div>
