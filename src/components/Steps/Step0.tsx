@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { UserData } from '@/hooks/useUserData';
 import { motion } from 'framer-motion';
+import { ActivityLevelSelect, activityLevels } from '../ActivityLevelSelect';
 
 interface Step0Props {
   userData: UserData;
@@ -23,6 +23,15 @@ const Step0: React.FC<Step0Props> = ({ userData, updateUserData, onNext }) => {
       userData.gender !== undefined && 
       userData.height !== undefined
     );
+  };
+
+  const handleActivityLevelChange = (value: string) => {
+    updateUserData({
+      activityLevel: {
+        level: value as UserData['activityLevel']['level'],
+        nap: activityLevels[value as keyof typeof activityLevels].nap
+      }
+    });
   };
 
   return (
@@ -95,6 +104,11 @@ const Step0: React.FC<Step0Props> = ({ userData, updateUserData, onNext }) => {
             />
           </div>
         </div>
+
+        <ActivityLevelSelect 
+          value={userData.activityLevel?.level}
+          onChange={handleActivityLevelChange}
+        />
       </div>
       
       <div className="flex justify-end mt-8">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 export interface UserData {
@@ -6,6 +5,10 @@ export interface UserData {
   age?: number;
   gender?: 'male' | 'female' | 'other';
   height?: number;
+  activityLevel?: {
+    level: 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active';
+    nap: number;
+  };
 
   // Étape 1 - Données eGym
   eGym?: {
