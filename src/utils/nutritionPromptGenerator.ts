@@ -1,6 +1,7 @@
 
 import { UserData } from '@/hooks/useUserData';
 import { calculateNutrition } from './nutritionCalculator';
+import { activityLevels } from '@/components/ActivityLevelSelect';
 
 export const generateNutritionPrompt = (userData: UserData): string | null => {
   const nutritionData = calculateNutrition(userData);
@@ -26,6 +27,12 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   // Extraire le niveau d'activité
   const activityLevel = userData.activityLevel?.nap || 1.2; // Par défaut à sédentaire si non spécifié
   
+  // Obtenir le libellé du niveau d'activité
+  let activityLabel = 'Non renseigné';
+  if (userData.activityLevel?.level && activityLevels[userData.activityLevel.level]) {
+    activityLabel = activityLevels[userData.activityLevel.level].label;
+  }
+  
   // Construire le prompt pour GPT
   return `
   Crée un plan nutritionnel personnalisé pour cette personne sur 7 jours:
@@ -38,7 +45,7 @@ export const generateNutritionPrompt = (userData: UserData): string | null => {
   - Pourcentage de masse grasse: ${fatPercentage}%
   - Âge métabolique: ${metabolicAge || 'Non renseigné'} ans
   - VO2max: ${vo2max || 'Non renseigné'}
-  - Niveau d'activité: ${userData.activityLevel?.label || 'Non renseigné'} (NAP: ${activityLevel})
+  - Niveau d'activité: ${activityLabel} (NAP: ${activityLevel})
   
   Calculs nutritionnels (selon Katch-McArdle):
   - Masse maigre (LBM): ${nutritionData.lbm} kg [calculée avec: Poids total × (1 – % de masse grasse)]
