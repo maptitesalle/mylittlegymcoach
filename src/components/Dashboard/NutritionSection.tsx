@@ -1,54 +1,17 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UserData } from '@/hooks/useUserData';
-import { Button } from '@/components/ui/button';
-import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
-import { calculateNutrition } from '@/utils/nutritionCalculator';
-import { 
-  Loader2, 
-  ArrowDown, 
-  Info, 
-  MailIcon, 
-  RefreshCw, 
-  Download,
-  Apple,
-  Beef,
-  Egg,
-  Fish
-} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { useToast } from '@/hooks/use-toast';
-import ReactMarkdown from 'react-markdown';
+import { calculateNutrition } from '@/utils/nutritionCalculator';
+import { generateNutritionPrompt } from '@/utils/nutritionPromptGenerator';
+import NutritionGenerator from './NutritionGenerator';
+import NutritionPlanDisplay from './NutritionPlanDisplay';
 import ExportModal from './ExportModal';
 
 interface NutritionSectionProps {
   userData: UserData;
 }
-
-const MacroIcon = ({ type }: { type: 'protein' | 'carbs' | 'fats' }) => {
-  switch (type) {
-    case 'protein':
-      return <Egg className="h-5 w-5 text-blue-600" />;
-    case 'carbs':
-      return <Apple className="h-5 w-5 text-green-600" />;
-    case 'fats':
-      return <Fish className="h-5 w-5 text-yellow-600" />;
-    default:
-      return null;
-  }
-};
 
 const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
   const [nutritionPlan, setNutritionPlan] = useState<string | null>(null);
@@ -245,12 +208,6 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
     });
   };
 
-  const extractRecipeNames = (markdownContent: string): string[] => {
-    if (!markdownContent) return [];
-    const recipePattern = /##\s*(.*?)(?=\n)/g;
-    return [...markdownContent.matchAll(recipePattern)].map(match => match[1].trim());
-  };
-
   if (!isDataComplete) {
     return (
       <div className="glass-card p-6">
@@ -272,245 +229,24 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
       <h3 className="text-xl font-medium text-brand-primary mb-4">Nutrition</h3>
       
       {!nutritionPlan ? (
-        <div className="space-y-6">
-          <div className="rounded-lg bg-brand-primary/5 p-4 border border-brand-primary/20">
-            <div className="flex items-start justify-between">
-              <h4 className="font-medium mb-2">Vos métriques nutritionnelles calculées</h4>
-              <button 
-                onClick={() => setShowMetrics(!showMetrics)}
-                className="text-brand-primary hover:text-brand-primary/80"
-              >
-                <ArrowDown className={`h-5 w-5 transform transition-transform ${showMetrics ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-            
-            {showMetrics && (
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="flex items-center">
-                    Masse maigre (LBM)
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-4 w-4 ml-1 text-gray-400" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="w-64">Calculée avec la formule: Poids total × (1 – % de masse grasse)</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </span>
-                  <span className="font-medium">{nutritionData.lbm} kg</span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="flex items-center">
-                    Métabolisme basal (BMR)
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-4 w-4 ml-1 text-gray-400" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="w-64">Calculé avec la formule de Katch-McArdle: 370 + (21.6 × LBM)</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </span>
-                  <span className="font-medium">{nutritionData.bmr} kcal</span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="flex items-center">
-                    Dépense énergétique totale (TDEE)
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-4 w-4 ml-1 text-gray-400" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="w-64">BMR × Facteur d'activité ({userData.activityLevel?.nap})</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </span>
-                  <span className="font-medium">{nutritionData.tdee} kcal</span>
-                </div>
-                
-                <div className="flex justify-between items-center font-medium text-brand-primary">
-                  <span>Calories quotidiennes recommandées</span>
-                  <span>{nutritionData.targetCalories} kcal</span>
-                </div>
-                
-                <div className="pt-2 mt-2 border-t">
-                  <div className="text-sm font-medium mb-2">Répartition des macronutriments:</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-blue-100 p-3 rounded text-center flex flex-col items-center">
-                      <div className="mb-1"><MacroIcon type="protein" /></div>
-                      <div className="font-medium text-blue-800">{nutritionData.macros.protein}g</div>
-                      <div className="text-xs text-blue-600">Protéines</div>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded text-center flex flex-col items-center">
-                      <div className="mb-1"><MacroIcon type="carbs" /></div>
-                      <div className="font-medium text-green-800">{nutritionData.macros.carbs}g</div>
-                      <div className="text-xs text-green-600">Glucides</div>
-                    </div>
-                    <div className="bg-yellow-100 p-3 rounded text-center flex flex-col items-center">
-                      <div className="mb-1"><MacroIcon type="fats" /></div>
-                      <div className="font-medium text-yellow-800">{nutritionData.macros.fats}g</div>
-                      <div className="text-xs text-yellow-600">Lipides</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="text-center">
-            <Button 
-              onClick={() => generateNutritionPlan(false)} 
-              disabled={loading}
-              className="bg-brand-primary hover:bg-brand-primary/90"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Génération en cours...
-                </>
-              ) : (
-                'Générer mon plan nutritionnel'
-              )}
-            </Button>
-            <p className="text-xs text-gray-500 mt-2">
-              Ce processus peut prendre quelques instants. Vous pouvez naviguer sur d'autres pages pendant la génération.
-            </p>
-          </div>
-        </div>
+        <NutritionGenerator
+          nutritionData={nutritionData}
+          showMetrics={showMetrics}
+          setShowMetrics={setShowMetrics}
+          loading={loading}
+          generateNutritionPlan={generateNutritionPlan}
+        />
       ) : (
-        <div className="space-y-4" ref={nutritionPlanRef}>
-          <div className="flex justify-between mb-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setNutritionPlan(null)}
-            >
-              Retour
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSendByEmail}
-              >
-                <MailIcon className="h-4 w-4 mr-1" />
-                Envoyer par email
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setExportModalOpen(true)}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Exporter
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => generateNutritionPlan(true)}
-                disabled={regenerating}
-              >
-                {regenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                )}
-                Régénérer
-              </Button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border shadow-sm">
-            <div className="p-4 border-b">
-              <h2 className="text-xl font-semibold text-brand-primary">Plan Nutritionnel Personnalisé</h2>
-              <p className="text-sm text-gray-500">Basé sur vos données personnelles et objectifs</p>
-            </div>
-            
-            <div className="p-4 prose prose-sm max-w-none">
-              <Accordion type="single" collapsible className="w-full">
-                {nutritionPlan
-                  .split(/(?=# Jour \d+)/)
-                  .filter(day => day.trim())
-                  .map((day, index) => {
-                    const dayMatch = day.match(/# Jour (\d+)/);
-                    const dayNumber = dayMatch ? parseInt(dayMatch[1]) : index + 1;
-                    
-                    // Extraire les macronutriments quotidiens si présents
-                    const macroMatch = day.match(/Total journalier[^\n]*?(\d+)[^\n]*?kcal[^\n]*?(\d+)g[^\n]*?(\d+)g[^\n]*?(\d+)g/);
-                    const calories = macroMatch ? macroMatch[1] : "N/A";
-                    const proteins = macroMatch ? macroMatch[2] : "N/A";
-                    const carbs = macroMatch ? macroMatch[3] : "N/A";
-                    const fats = macroMatch ? macroMatch[4] : "N/A";
-                    
-                    return (
-                      <AccordionItem value={`day-${dayNumber}`} key={`day-${dayNumber}`} className="border-b border-gray-200">
-                        <AccordionTrigger className="py-4 px-3 hover:no-underline hover:bg-gray-50 rounded-md">
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-lg font-medium text-brand-primary">Jour {dayNumber}</span>
-                            
-                            {macroMatch && (
-                              <div className="hidden md:flex items-center space-x-4 text-sm">
-                                <div className="flex items-center">
-                                  <span className="text-gray-600 mr-1">{calories} kcal</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <MacroIcon type="protein" />
-                                  <span className="ml-1 text-blue-600">{proteins}g</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <MacroIcon type="carbs" />
-                                  <span className="ml-1 text-green-600">{carbs}g</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <MacroIcon type="fats" />
-                                  <span className="ml-1 text-yellow-600">{fats}g</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-4 pt-2 pb-4">
-                          {/* Affichage des macros pour mobile */}
-                          {macroMatch && (
-                            <div className="md:hidden flex justify-between mb-4 p-2 bg-gray-50 rounded">
-                              <div className="text-center">
-                                <div className="text-gray-700 font-medium">{calories}</div>
-                                <div className="text-xs text-gray-500">kcal</div>
-                              </div>
-                              <div className="text-center flex flex-col items-center">
-                                <MacroIcon type="protein" />
-                                <div className="text-xs text-blue-600">{proteins}g</div>
-                              </div>
-                              <div className="text-center flex flex-col items-center">
-                                <MacroIcon type="carbs" />
-                                <div className="text-xs text-green-600">{carbs}g</div>
-                              </div>
-                              <div className="text-center flex flex-col items-center">
-                                <MacroIcon type="fats" />
-                                <div className="text-xs text-yellow-600">{fats}g</div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          <ReactMarkdown className="prose-h2:text-lg prose-h2:font-medium prose-h2:text-brand-primary prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:font-medium prose-h3:mt-3 prose-h3:mb-1">
-                            {day.replace(/# Jour \d+\n/, '')}
-                          </ReactMarkdown>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-              </Accordion>
-            </div>
-          </div>
+        <>
+          <NutritionPlanDisplay
+            nutritionPlan={nutritionPlan}
+            nutritionPlanRef={nutritionPlanRef}
+            regenerating={regenerating}
+            handleSendByEmail={handleSendByEmail}
+            setNutritionPlan={setNutritionPlan}
+            setExportModalOpen={setExportModalOpen}
+            generateNutritionPlan={generateNutritionPlan}
+          />
           
           {exportModalOpen && (
             <ExportModal 
@@ -519,7 +255,7 @@ const NutritionSection: React.FC<NutritionSectionProps> = ({ userData }) => {
               nutritionPlan={nutritionPlan}
             />
           )}
-        </div>
+        </>
       )}
     </div>
   );
