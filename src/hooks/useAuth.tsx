@@ -84,15 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
+      const redirectUrl = `${window.location.origin}/login`;
+      
       // If name is provided, add it to user metadata
       const { error } = await supabase.auth.signUp({ 
         email, 
         password,
-        options: name ? {
-          data: {
-            name
-          }
-        } : undefined
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: name ? { name } : undefined
+        }
       });
       
       if (error) {
@@ -146,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password'
+        redirectTo: `${window.location.origin}/login`
       });
       
       if (error) {
