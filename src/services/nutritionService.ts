@@ -17,6 +17,7 @@ export async function saveNutritionPlan(content: string, userId: string, request
   
   // Vérifier si un plan avec ce requestId existe déjà
   if (requestId) {
+    // On utilise .maybeSingle() au lieu de .single() pour éviter les erreurs de type
     const { data: existingPlan, error: checkError } = await supabase
       .from('nutrition_plans')
       .select('id')
